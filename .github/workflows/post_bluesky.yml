@@ -1,0 +1,32 @@
+name: Post to Bluesky
+
+on:
+  schedule:
+    - cron: "0 0 * * *"     # JST 09:00（UTC 0:00）
+  workflow_dispatch:        # 手動実行もできるようにする
+
+jobs:
+  bluesky:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install requests pytz
+
+      - name: Run Bluesky Post Script
+        env:
+          BSKY_USER: ${{ secrets.BSKY_USER }}
+          BSKY_PASS: ${{ secrets.BSKY_PASS }}
+          IMAGE_PATH: Thumbnail/Thumbnail.png   # X と同じ画像パスを使用
+          TWEET_TEXT: ${{ secrets.POST_TEXT }}  # 必要なら MESSAGE を共通化
+        run: |
+          python post_bluesky.py
