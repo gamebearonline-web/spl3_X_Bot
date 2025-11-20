@@ -8,8 +8,11 @@ import os
 # ★ パス設定
 # ==========================
 TEMPLATE_PATH = "spl3_Schedule_Template_ver0.png"
-OUTPUT_PATH   = "Thumbnail.png"
+OUTPUT_PATH   = "Thumbnail/Thumbnail.png"
 ICON_DIR      = "icon"
+
+# Thumbnail フォルダが無い場合は作成
+os.makedirs("Thumbnail", exist_ok=True)
 
 # ==========================
 # ★ 高速化：画像キャッシュ & Session
@@ -553,6 +556,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
