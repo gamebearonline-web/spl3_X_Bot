@@ -14,7 +14,8 @@ def main():
         sys.exit(1)
 
     # 投稿文章（環境変数で上書き可能）
-    tweet_text = os.getenv("TWEET_TEXT", "【スプラ3】最新ステージ情報！")
+    base_text = os.getenv("TWEET_TEXT", "【スプラ3】スケジュールが更新されました！")
+    tweet_text = f"{base_text}\n{date_str} {hour_str}時 更新"
 
     # 投稿する画像パス（環境変数で上書き可能）
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
