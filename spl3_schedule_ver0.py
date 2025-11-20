@@ -41,7 +41,7 @@ MODE_COLORS = {
 # ★ フォント(源暎ぽっぷる)
 # ==========================
 def load_font(size):
-    return ImageFont.truetype(r"C:\Users\manma\Desktop\spl3_Schedule_Bot\GenEiPOPle_v1.0\GenEiPOPle-Bk.ttf", size)
+    return ImageFont.truetype(r"GenEiPOPle_v1.0/GenEiPOPle-Bk.ttf", size)
 
 FONT_TIME_NOW    = load_font(15)
 FONT_STAGE_NOW   = load_font(12)
@@ -553,4 +553,5 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
