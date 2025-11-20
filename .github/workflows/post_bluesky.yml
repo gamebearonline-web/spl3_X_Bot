@@ -1,48 +1,62 @@
+# .github/workflows/post_bluesky.yml
 name: Post to Bluesky
 
 on:
   schedule:
-    - cron: "2 0 * * *"    # 日本時間 09:02 → 9:00更新後すぐ取得
-    - cron: "2 2 * * *"    # 11:02
-    - cron: "2 4 * * *"    # 13:02
-    - cron: "2 6 * * *"    # 15:02
-    - cron: "2 8 * * *"    # 17:02
-    - cron: "2 10 * * *"   # 19:02
-    - cron: "2 12 * * *"   # 21:02
-    - cron: "2 14 * * *"   # 23:02
-    - cron: "2 16 * * *"   # 01:02（翌日）
-    - cron: "2 18 * * *"   # 03:02
-    - cron: "2 20 * * *"   # 05:02
-    - cron: "2 22 * * *"   # 07:02
-  workflow_dispatch:
+    - cron: "2 0 * * *"   # 日本時間 09:02
+    - cron: "2 2 * * *"   # 11:02
+    - cron: "2 4 * * *"   # 13:02
+    - cron: "2 6 * * *"   # 15:02
+    - cron: "2 8 * * *"   # 17:02
+    - cron: "2 10 * * *"  # 19:02
+    - cron: "2 12 * * *"  # 21:02
+    - cron: "2 14 * * *"  # 23:02
+    - cron: "2 16 * * *"  # 翌01:02
+    - cron: "2 18 * * *"  # 03:02
+    - cron: "2 20 * * *"  # 05:02
+    - cron: "2 22 * * *"  # 07:02
+  workflow_dispatch:      # ← これで手動実行ボタン出現！
 
 jobs:
   bluesky:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install requests pillow pytz
 
-      # 🔥 必須：画像生成（X と同じ画像を Bluesky 用に生成）
-      - name: Generate Splatoon Schedule Image
+      - name: Generate Splatoon 3 Schedule Image
         run: |
           python spl3_schedule_ver0.py
+          echo "画像生成完了 → Thumbnail/Thumbnail.png"
 
-      # 🔥 投稿処理
       - name: Post to Bluesky
         env:
           BSKY_USER: ${{ secrets.BSKY_USER }}
           BSKY_PASS: ${{ secrets.BSKY_PASS }}
-          IMAGE_PATH: Thumbnail/Thumbnail.png   # ← 画像生成スクリプトの出力と一致
+          IMAGE_PATH: Thumbnail/Thumbnail.png
         run: |
           python post_bluesky.py
+
+      - name: Success message
+        if: success()
+        run: |
+          echo "Bluesky投稿完了！"
+          echo "投稿時刻（JST）: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
+
+      - name: Failure message
+        if: failure()
+        run: |
+          echo "Bluesky投稿に失敗しました…"
