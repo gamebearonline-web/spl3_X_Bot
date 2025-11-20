@@ -33,6 +33,5 @@ jobs:
           BSKY_USER: ${{ secrets.BSKY_USER }}
           BSKY_PASS: ${{ secrets.BSKY_PASS }}
           IMAGE_PATH: Thumbnail/Thumbnail.png   # ← 画像生成スクリプトの出力と一致
-          TWEET_TEXT: ${{ secrets.POST_TEXT }}
         run: |
           python post_bluesky.py
