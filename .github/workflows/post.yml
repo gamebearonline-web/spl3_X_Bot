@@ -1,0 +1,32 @@
+name: Auto Post to X
+
+on:
+  schedule:
+    - cron: "0 0,2,4,6,8,10,12,14,16,18,20,22 * * *"  # UTC → JST 9時開始2hおき
+  workflow_dispatch:        # ←手動実行も可能
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install requests Pillow tweepy
+
+    - name: Run bot
+      env:
+        TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+        TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+        TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+      run: |
+        python spl3_schedule_ver0.py
