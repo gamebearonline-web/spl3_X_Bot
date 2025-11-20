@@ -36,7 +36,7 @@ jobs:
       # 🔥 必須：画像生成
       - name: Generate Image
         run: |
-          python generate_image.py    # ← あなたの画像生成スクリプト名
+          python spl3_schedule_ver0.py    # ← あなたの画像生成スクリプト名
 
       # 🔥 ここで画像が確実に存在する
       - name: Post to Bluesky
