@@ -17,7 +17,7 @@ def post_to_misskey():
     now = datetime.now(jst)
     time_str = now.strftime("🗓️ %Y年%-m月%-d日　%-H時更新")
 
-    text = f"【スプラトゥーン3】スケジュール更新！ \n{time_str}\n画像で全ステージ確認してね！"
+    text = f"【スプラトゥーン3】スケジュール更新！ \n{time_str}\n画像で全ステージ確認してね！\n#スプラ3スケジュール"
 
     # 画像がある場合はアップロード
     files = {}
