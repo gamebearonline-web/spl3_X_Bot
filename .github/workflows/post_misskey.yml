@@ -1,0 +1,61 @@
+# .github/workflows/post_misskey.yml
+name: Post to Misskey
+
+on:
+  schedule:
+    - cron: "2 0 * * *"   # 日本時間 09:02
+    - cron: "2 2 * * *"   # 11:02
+    - cron: "2 4 * * *"   # 13:02
+    - cron: "2 6 * * *"   # 15:02
+    - cron: "2 8 * * *"   # 17:02
+    - cron: "2 10 * * *"  # 19:02
+    - cron: "2 12 * * *"  # 21:02
+    - cron: "2 14 * * *"  # 23:02
+    - cron: "2 16 * * *"  # 翌01:02
+    - cron: "2 18 * * *"  # 03:02
+    - cron: "2 20 * * *"  # 05:02
+    - cron: "2 22 * * *"  # 07:02
+  workflow_dispatch:      # 手動実行ボタンあり！
+
+jobs:
+  misskey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          # cache: pip ← 削除してエラー回避！
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests pillow pytz
+
+      - name: Generate Splatoon 3 Schedule Image
+        run: |
+          python spl3_schedule_ver0.py
+          echo "画像生成完了 → Thumbnail/Thumbnail.png"
+
+      - name: Post to Misskey
+        env:
+          MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
+          IMAGE_PATH: Thumbnail/Thumbnail.png
+        run: |
+          python post_misskey.py
+
+      - name: Success message
+        if: success()
+        run: |
+          echo "Misskey投稿完了！"
+          echo "時刻（JST）: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
+
+      - name: Failure message
+        if: failure()
+        run: |
+          echo "Misskey投稿に失敗しました…"
