@@ -2,7 +2,7 @@ name: Post to Bluesky
 
 on:
   schedule:
-    - cron: "2 0 * * *"    # 日本時間 09:02 → 9:00更新後すぐ取得
+     - cron: "2 0 * * *"    # 日本時間 09:02 → 9:00更新後すぐ取得
     - cron: "2 2 * * *"    # 11:02
     - cron: "2 4 * * *"    # 13:02
     - cron: "2 6 * * *"    # 15:02
@@ -14,7 +14,7 @@ on:
     - cron: "2 18 * * *"   # 03:02
     - cron: "2 20 * * *"   # 05:02
     - cron: "2 22 * * *"   # 07:02
-  workflow_dispatch:        # 手動実行もできるようにする
+  workflow_dispatch:
 
 jobs:
   bluesky:
@@ -31,13 +31,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests pytz
+          pip install pillow requests pytz
 
-      - name: Run Bluesky Post Script
+      # 🔥 必須：画像生成
+      - name: Generate Image
+        run: |
+          python generate_image.py    # ← あなたの画像生成スクリプト名
+
+      # 🔥 ここで画像が確実に存在する
+      - name: Post to Bluesky
         env:
           BSKY_USER: ${{ secrets.BSKY_USER }}
           BSKY_PASS: ${{ secrets.BSKY_PASS }}
-          IMAGE_PATH: Thumbnail/Thumbnail.png   # X と同じ画像パスを使用
-          TWEET_TEXT: ${{ secrets.POST_TEXT }}  # 必要なら MESSAGE を共通化
+          IMAGE_PATH: Thumbnail/Thumbnail.png
+          TWEET_TEXT: ${{ secrets.POST_TEXT }}
         run: |
           python post_bluesky.py
