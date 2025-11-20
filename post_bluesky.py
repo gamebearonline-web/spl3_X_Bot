@@ -1,8 +1,18 @@
+# post_bluesky.py
 import os
 import sys
 import requests
 from datetime import datetime
 import pytz
+
+def generate_default_text():
+    """デフォルトの投稿文を生成（改行が先頭に来ないように注意）"""
+    jst = pytz.timezone('Asia/Tokyo')
+    now = datetime.now(jst)
+    time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
+    
+    # 重要：改行は2行目以降に配置（先頭に\nを置かない！）
+    return f"【スプラ3】スケジュール更新！ {time_str}\n\n今日もガチマッチ・サーモンラン・ビッグラン盛りだくさん！\n画像で全ステージ確認してね！"
 
 def post_to_bluesky(image_path, text):
     HANDLE = os.getenv("BSKY_USER")
@@ -47,14 +57,13 @@ def post_to_bluesky(image_path, text):
 
         blob = upload_res.json()["blob"]
         print("Bluesky 画像アップロード成功")
+    else:
+        print("警告: 画像が見つかりません:", image_path)
 
-    # ====== ③ text が空の場合は強制で生成 ======
+    # ====== ③ テキストが空ならデフォルト生成（ここでもガード）======
     if not text or text.strip() == "":
-        jst = pytz.timezone('Asia/Tokyo')
-        now = datetime.now(jst)
-        time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
-        text = f"【スプラ3】スケジュール更新！\n{time_str}"
-        print("テキスト補完:", text)
+        text = generate_default_text()
+        print("テキストが空だったため補完しました →", text.replace("\n", "\\n"))
 
     # ====== ④ 投稿データ ======
     record = {
@@ -70,7 +79,7 @@ def post_to_bluesky(image_path, text):
             "images": [
                 {
                     "image": blob,
-                    "alt": "Thumbnail"
+                    "alt": "スプラトゥーン3 スケジュール画像"
                 }
             ]
         }
@@ -96,13 +105,13 @@ def post_to_bluesky(image_path, text):
 
 
 def main():
-    # ここでもテキスト補完を二重にする（絶対に空にならないように）
-    text = os.getenv("TWEET_TEXT")
-    if not text or text.strip() == "":
-        jst = pytz.timezone('Asia/Tokyo')
-        now = datetime.now(jst)
-        time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
-        text = f"【スプラ3】スケジュール更新！\n{time_str}"
+    # 環境変数からテキスト取得（空でもOK）
+    text = os.getenv("TWEET_TEXT", "").strip()
+    
+    # 空ならデフォルト生成（mainでも1回ガード）
+    if not text:
+        text = generate_default_text()
+        print("TWEET_TEXTが未設定 → デフォルトテキストを使用")
 
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
 
