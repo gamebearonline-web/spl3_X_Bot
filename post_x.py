@@ -25,7 +25,7 @@ def main():
     tweet_text = os.getenv("TWEET_TEXT", "【スプラ3】最新ステージ情報！")
 
     # 投稿する画像パス（環境変数で上書きも可）
-    image_path = os.getenv("IMAGE_PATH", "Thumbnail.png")
+    image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
 
     if not os.path.exists(image_path):
         print(f"❌ Error: 画像ファイルが存在しません → {image_path}")
