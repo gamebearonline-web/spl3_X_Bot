@@ -12,7 +12,7 @@ def generate_default_text():
     time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
     
     # 重要：改行は2行目以降に配置（先頭に\nを置かない！）
-    return f"【スプラ3】スケジュール更新！ {time_str}\n\n今日もガチマッチ・サーモンラン・ビッグラン盛りだくさん！\n画像で全ステージ確認してね！"
+    return f"【スプラ3】スケジュール更新！\n\n {time_str}\n画像で全ステージ確認してね！"
 
 def post_to_bluesky(image_path, text):
     HANDLE = os.getenv("BSKY_USER")
