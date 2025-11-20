@@ -2,8 +2,8 @@ name: Auto Post to X
 
 on:
   schedule:
-    - cron: "0 0,2,4,6,8,10,12,14,16,18,20,22 * * *"  # UTC → JSTで9時～23時 2時間おき
-  workflow_dispatch:        # 手動実行も可能
+    - cron: "1 */2 * * *"   # ← ここだけ変更！毎時01分に実行
+  workflow_dispatch:        # 手動実行もOK
 
 jobs:
   run-bot:
@@ -21,7 +21,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install requests Pillow tweepy pytz
-        # ↑ここに pytz を追加！
 
     - name: Generate image
       run: python spl3_schedule_ver0.py
