@@ -2,7 +2,7 @@ name: Post to Bluesky
 
 on:
   schedule:
-     - cron: "2 0 * * *"    # 日本時間 09:02 → 9:00更新後すぐ取得
+    - cron: "2 0 * * *"    # 日本時間 09:02 → 9:00更新後すぐ取得
     - cron: "2 2 * * *"    # 11:02
     - cron: "2 4 * * *"    # 13:02
     - cron: "2 6 * * *"    # 15:02
@@ -14,7 +14,6 @@ on:
     - cron: "2 18 * * *"   # 03:02
     - cron: "2 20 * * *"   # 05:02
     - cron: "2 22 * * *"   # 07:02
-  workflow_dispatch:
 
 jobs:
   bluesky:
@@ -31,19 +30,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pillow requests pytz
+          pip install requests pillow pytz
 
-      # 🔥 必須：画像生成
-      - name: Generate Image
+      # 🔥 必須：画像生成（X と同じ画像を Bluesky 用に生成）
+      - name: Generate Splatoon Schedule Image
         run: |
-          python spl3_schedule_ver0.py    # ← あなたの画像生成スクリプト名
+          python spl3_schedule_ver0.py
 
-      # 🔥 ここで画像が確実に存在する
+      # 🔥 投稿処理
       - name: Post to Bluesky
         env:
           BSKY_USER: ${{ secrets.BSKY_USER }}
           BSKY_PASS: ${{ secrets.BSKY_PASS }}
-          IMAGE_PATH: Thumbnail/Thumbnail.png
+          IMAGE_PATH: Thumbnail/Thumbnail.png   # ← 画像生成スクリプトの出力と一致
           TWEET_TEXT: ${{ secrets.POST_TEXT }}
         run: |
           python post_bluesky.py
