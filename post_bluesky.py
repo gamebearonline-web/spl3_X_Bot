@@ -5,12 +5,8 @@ from datetime import datetime
 import pytz
 
 def post_to_bluesky(image_path, text):
-    """
-    Bluesky に画像付き投稿を行う関数
-    """
-
-    HANDLE = os.getenv("BSKY_USER")      # 例: yourname.bsky.social
-    PASSWORD = os.getenv("BSKY_PASS")    # Bluesky パスワード
+    HANDLE = os.getenv("BSKY_USER")
+    PASSWORD = os.getenv("BSKY_PASS")
 
     if not HANDLE or not PASSWORD:
         print("Error: Bluesky の認証情報が不足しています")
@@ -29,6 +25,7 @@ def post_to_bluesky(image_path, text):
     session = login_res.json()
     access_jwt = session["accessJwt"]
     did = session["did"]
+
     print(f"Bluesky ログイン成功: {did}")
 
     # ② 画像アップロード
@@ -41,7 +38,7 @@ def post_to_bluesky(image_path, text):
             "https://bsky.social/xrpc/com.atproto.repo.uploadBlob",
             headers={
                 "Authorization": f"Bearer {access_jwt}",
-                "Content-Type": "image/png",
+                "Content-Type": "image/png"
             },
             data=img_bytes
         )
@@ -53,14 +50,22 @@ def post_to_bluesky(image_path, text):
         blob = upload_res.json()["blob"]
         print("Bluesky 画像アップロード成功")
 
-    # ③ 投稿データ作成
+    # ③ text が空なら default_text を強制適用
+    if not text or text.strip() == "":
+        jst = pytz.timezone('Asia/Tokyo')
+        now = datetime.now(jst)
+        time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
+        text = f"【スプラ3】スケジュール更新！\n{time_str}"
+
+    # ④ 投稿データ
     record = {
         "$type": "app.bsky.feed.post",
         "text": text,
+        "langs": ["ja"],   # ← これが重要！テキスト表示の安定化
         "createdAt": datetime.now(tz=pytz.utc).isoformat().replace("+00:00", "Z")
     }
 
-    # 🔥 embed には必ず "$type" が必要（今回の修正ポイント）
+    # 画像あり
     if blob:
         record["embed"] = {
             "$type": "app.bsky.embed.images",
@@ -78,7 +83,7 @@ def post_to_bluesky(image_path, text):
         "record": record
     }
 
-    # ④ 投稿
+    # ⑤ 投稿
     post_res = requests.post(
         "https://bsky.social/xrpc/com.atproto.repo.createRecord",
         headers={"Authorization": f"Bearer {access_jwt}"},
@@ -93,20 +98,21 @@ def post_to_bluesky(image_path, text):
 
 
 def main():
-    # --- 投稿文作成 ---
     jst = pytz.timezone('Asia/Tokyo')
     now = datetime.now(jst)
     time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
     default_text = f"【スプラ3】スケジュール更新！\n{time_str}"
-    text = os.getenv("TWEET_TEXT", default_text)
 
-    # --- 画像パス ---
+    # 空の場合は main 内でも補完
+    text = os.getenv("TWEET_TEXT")
+    if not text or text.strip() == "":
+        text = default_text
+
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
     if not os.path.exists(image_path):
         print(f"Error: 画像ファイルが見つかりません → {image_path}")
         sys.exit(1)
 
-    # --- Bluesky 投稿 ---
     post_to_bluesky(image_path, text)
 
 
