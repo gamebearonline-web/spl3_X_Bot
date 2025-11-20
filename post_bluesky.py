@@ -16,9 +16,7 @@ def post_to_bluesky(image_path, text):
         print("Error: Bluesky の認証情報が不足しています")
         sys.exit(1)
 
-    # -------------------------------------------------------
-    # ① ログイン（セッション作成）
-    # -------------------------------------------------------
+    # ① ログイン
     login_res = requests.post(
         "https://bsky.social/xrpc/com.atproto.server.createSession",
         json={"identifier": HANDLE, "password": PASSWORD}
@@ -31,12 +29,9 @@ def post_to_bluesky(image_path, text):
     session = login_res.json()
     access_jwt = session["accessJwt"]
     did = session["did"]
-
     print(f"Bluesky ログイン成功: {did}")
 
-    # -------------------------------------------------------
-    # ② 画像アップロード（任意）
-    # -------------------------------------------------------
+    # ② 画像アップロード
     blob = None
     if image_path and os.path.exists(image_path):
         with open(image_path, "rb") as f:
@@ -46,7 +41,7 @@ def post_to_bluesky(image_path, text):
             "https://bsky.social/xrpc/com.atproto.repo.uploadBlob",
             headers={
                 "Authorization": f"Bearer {access_jwt}",
-                "Content-Type": "image/png"
+                "Content-Type": "image/png",
             },
             data=img_bytes
         )
@@ -58,19 +53,17 @@ def post_to_bluesky(image_path, text):
         blob = upload_res.json()["blob"]
         print("Bluesky 画像アップロード成功")
 
-    # -------------------------------------------------------
-    # ③ 投稿（record作成）
-    # -------------------------------------------------------
+    # ③ 投稿データ作成
     record = {
-        "type": "app.bsky.feed.post",
+        "$type": "app.bsky.feed.post",
         "text": text,
         "createdAt": datetime.now(tz=pytz.utc).isoformat().replace("+00:00", "Z")
     }
 
-    # 画像あり
+    # 🔥 embed には必ず "$type" が必要（今回の修正ポイント）
     if blob:
         record["embed"] = {
-            "type": "app.bsky.embed.images",
+            "$type": "app.bsky.embed.images",
             "images": [
                 {
                     "image": blob,
@@ -85,6 +78,7 @@ def post_to_bluesky(image_path, text):
         "record": record
     }
 
+    # ④ 投稿
     post_res = requests.post(
         "https://bsky.social/xrpc/com.atproto.repo.createRecord",
         headers={"Authorization": f"Bearer {access_jwt}"},
@@ -98,23 +92,21 @@ def post_to_bluesky(image_path, text):
     print("Bluesky 投稿成功！")
 
 
-
 def main():
-    # ------------------ 投稿文作成 ------------------
+    # --- 投稿文作成 ---
     jst = pytz.timezone('Asia/Tokyo')
     now = datetime.now(jst)
     time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
-
     default_text = f"【スプラ3】スケジュール更新！\n{time_str}"
     text = os.getenv("TWEET_TEXT", default_text)
 
-    # ------------------ 画像パス ------------------
+    # --- 画像パス ---
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
     if not os.path.exists(image_path):
         print(f"Error: 画像ファイルが見つかりません → {image_path}")
         sys.exit(1)
 
-    # ------------------ Bluesky 投稿 ------------------
+    # --- Bluesky 投稿 ---
     post_to_bluesky(image_path, text)
 
 
