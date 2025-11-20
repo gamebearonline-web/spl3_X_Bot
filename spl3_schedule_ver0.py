@@ -7,9 +7,9 @@ import os
 # ==========================
 # ★ パス設定
 # ==========================
-TEMPLATE_PATH = r"C:\Users\manma\Desktop\spl3_Schedule_Bot\spl3_Schedule_Template_ver0.png"
-OUTPUT_PATH   = r"C:\Users\manma\Desktop\spl3_Schedule_Bot\Thumbnail.png"
-ICON_DIR      = r"C:\Users\manma\Desktop\spl3_Schedule_Bot\icon"
+TEMPLATE_PATH = "spl3_Schedule_Template_ver0.png"
+OUTPUT_PATH   = "Thumbnail.png"
+ICON_DIR      = "icon"
 
 # ==========================
 # ★ 高速化：画像キャッシュ & Session
@@ -553,3 +553,4 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
