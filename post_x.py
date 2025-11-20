@@ -20,7 +20,7 @@ def main():
     now = datetime.now(jst)
 
     # 例: 2025年11月20日 18時更新
-    time_str = now.strftime("📅 %Y年%-m月%-d日　🕐 %-H時更新")   # Linux/macOS対応（WindowsでもOK）
+    time_str = now.strftime("📅📆 %Y年%-m月%-d日　⌚🕛 %-H時更新")   # Linux/macOS対応（WindowsでもOK）
     # Windowsで動かす場合は下記のように書くと確実
     # time_str = now.strftime("%Y年%m月%d日 %H時更新").replace(" 0", " ").lstrip("0")
 
