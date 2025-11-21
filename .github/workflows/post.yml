@@ -1,27 +1,26 @@
-name: Auto Post to X
+name: Post to X
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-bot:
+  post-x:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+        cache: "pip"
 
     - name: Install dependencies
-      run: |
-        pip install requests Pillow tweepy pytz
-
-    - name: Generate image
-      run: python spl3_schedule_ver0.py
+      run: pip install -r requirements.txt
 
     - name: Post to X
       env:
