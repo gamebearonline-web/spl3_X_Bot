@@ -1,40 +1,23 @@
-name: Auto Post to X
+name: Post to X
 
 on:
   schedule:
-    - cron: "2 0 * * *"    # 日本時間 09:02 → 9:00更新後すぐ取得
-    - cron: "2 2 * * *"    # 11:02
-    - cron: "2 4 * * *"    # 13:02
-    - cron: "2 6 * * *"    # 15:02
-    - cron: "2 8 * * *"    # 17:02
-    - cron: "2 10 * * *"   # 19:02
-    - cron: "2 12 * * *"   # 21:02
-    - cron: "2 14 * * *"   # 23:02
-    - cron: "2 16 * * *"   # 01:02（翌日）
-    - cron: "2 18 * * *"   # 03:02
-    - cron: "2 20 * * *"   # 05:02
-    - cron: "2 22 * * *"   # 07:02
-  workflow_dispatch:        # 手動実行もOK
+    - cron: "7 0-22/2 * * *"  # JST 9:07 から2時間ごと
+  workflow_dispatch:
 
 jobs:
-  run-bot:
+  post:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
     - name: Install dependencies
       run: |
-        pip install requests Pillow tweepy pytz
-
-    - name: Generate image
-      run: python spl3_schedule_ver0.py
+        pip install tweepy pytz
 
     - name: Post to X
       env:
