@@ -1,8 +1,7 @@
-# .github/workflows/post_bluesky.yml
 name: Post to Bluesky
 
 on:
-  workflow_dispatch:   # ← GAS から起動する唯一のトリガー！
+  workflow_dispatch:   # GAS が叩く唯一のトリガー
 
 jobs:
   bluesky:
@@ -21,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests pillow pytz
+          pip install requests pytz
 
       - name: Generate Splatoon 3 Schedule Image
         run: |
@@ -36,13 +35,5 @@ jobs:
         run: |
           python post_bluesky.py
 
-      - name: Success message
-        if: success()
-        run: |
-          echo "Bluesky投稿完了！"
-          echo "投稿時刻（JST）: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
-
-      - name: Failure message
-        if: failure()
-        run: |
-          echo "Bluesky投稿に失敗しました…"
+      - name: Done
+        run: echo "Bluesky投稿完了（GASトリガー）"
