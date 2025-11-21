@@ -1,7 +1,7 @@
 name: Post to Bluesky
 
 on:
-  workflow_dispatch:   # GAS が叩く唯一のトリガー
+  workflow_dispatch:
 
 jobs:
   bluesky:
@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests pytz
+          pip install requests pillow pytz  # ← pillow 追加！
 
       - name: Generate Splatoon 3 Schedule Image
         run: |
@@ -35,5 +35,12 @@ jobs:
         run: |
           python post_bluesky.py
 
-      - name: Done
-        run: echo "Bluesky投稿完了（GASトリガー）"
+      - name: Success message
+        if: success()
+        run: |
+          echo "Bluesky投稿完了！"
+
+      - name: Failure message
+        if: failure()
+        run: |
+          echo "Bluesky投稿に失敗しました…"
