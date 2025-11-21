@@ -1,21 +1,7 @@
-# .github/workflows/post_misskey.yml
 name: Post to Misskey
 
 on:
-  schedule:
-    - cron: "2 0 * * *"   # 日本時間 09:02
-    - cron: "2 2 * * *"   # 11:02
-    - cron: "2 4 * * *"   # 13:02
-    - cron: "2 6 * * *"   # 15:02
-    - cron: "2 8 * * *"   # 17:02
-    - cron: "2 10 * * *"  # 19:02
-    - cron: "2 12 * * *"  # 21:02
-    - cron: "2 14 * * *"  # 23:02
-    - cron: "2 16 * * *"  # 翌01:02
-    - cron: "2 18 * * *"  # 03:02
-    - cron: "2 20 * * *"  # 05:02
-    - cron: "2 22 * * *"  # 07:02
-  workflow_dispatch:      # 手動実行ボタンあり！
+  workflow_dispatch:   # ← 手動実行 & GAS からの実行用（これだけ）
 
 jobs:
   misskey:
@@ -25,17 +11,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          # cache: pip ← 削除してエラー回避！
+          cache: 'pip'            # ← 高速化！
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install requests pillow pytz
+          pip install -r requirements.txt
 
       - name: Generate Splatoon 3 Schedule Image
         run: |
