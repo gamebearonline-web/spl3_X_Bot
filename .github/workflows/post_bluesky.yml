@@ -2,20 +2,7 @@
 name: Post to Bluesky
 
 on:
-  schedule:
-    - cron: "2 0 * * *"   # 日本時間 09:02
-    - cron: "2 2 * * *"   # 11:02
-    - cron: "2 4 * * *"   # 13:02
-    - cron: "2 6 * * *"   # 15:02
-    - cron: "2 8 * * *"   # 17:02
-    - cron: "2 10 * * *"  # 19:02
-    - cron: "2 12 * * *"  # 21:02
-    - cron: "2 14 * * *"  # 23:02
-    - cron: "2 16 * * *"  # 翌01:02
-    - cron: "2 18 * * *"  # 03:02
-    - cron: "2 20 * * *"  # 05:02
-    - cron: "2 22 * * *"  # 07:02
-  workflow_dispatch:      # ← これで手動実行ボタン出現！
+  workflow_dispatch:   # ← GAS から起動する唯一のトリガー！
 
 jobs:
   bluesky:
