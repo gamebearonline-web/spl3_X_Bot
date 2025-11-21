@@ -1,7 +1,7 @@
 name: Generate Image
 
 on:
-  workflow_dispatch:   # ← これだけにする（cron削除）
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,32 +14,26 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
+        fetch-depth: 1
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+        cache: "pip"     # ← pip キャッシュ
 
     - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install requests Pillow pytz
+      run: pip install -r requirements.txt
 
-    - name: Generate Thumbnail image
+    - name: Generate Thumbnail Image
       run: python spl3_schedule_ver0.py
 
-    - name: Commit & Force Push (keep only 1 commit)
+    - name: Commit & push
       run: |
-        git config user.name "github-actions"
+        git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
 
         git add Thumbnail/Thumbnail.png
+        git commit -m "Update thumbnail [skip ci]" || echo "No changes"
 
-        git commit -m "Update Thumbnail [skip ci]" || echo "No changes"
-
-        git fetch origin main
-        git reset --soft origin/main
-
-        git push --force origin main
+        git push
