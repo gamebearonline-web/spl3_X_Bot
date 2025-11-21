@@ -2,22 +2,38 @@ name: Generate Image
 
 on:
   schedule:
-    - cron: "3 0-22/2 * * *"  # JST 9:03 から2時間ごと
+    - cron: "3 0-22/2 * * *"   # JST 9:03〜7:03（2時間おき）
   workflow_dispatch:
+
+permissions:
+  contents: write   # ← repo へ push する権限
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
 
-    - uses: actions/setup-python@v4
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
       with:
-        python-version: '3.11'
+        token: ${{ secrets.GITHUB_TOKEN }}  # workflow から push 可能にする
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
 
     - name: Install dependencies
       run: |
         pip install requests Pillow pytz
 
-    - name: Generate image
+    - name: Generate Thumbnail image
       run: python spl3_schedule_ver0.py
+
+    - name: Commit & push generated image
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add Thumbnail/Thumbnail.png
+        git commit -m "Update thumbnail image"
+        git push origin main
