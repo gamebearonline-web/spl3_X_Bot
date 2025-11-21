@@ -4,43 +4,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  bluesky:
+  post-bsky:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: "pip"
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install requests pillow pytz  # ← pillow 追加！
+    - name: Install dependencies
+      run: pip install -r requirements.txt
 
-      - name: Generate Splatoon 3 Schedule Image
-        run: |
-          python spl3_schedule_ver0.py
-          echo "画像生成完了 → Thumbnail/Thumbnail.png"
-
-      - name: Post to Bluesky
-        env:
-          BSKY_USER: ${{ secrets.BSKY_USER }}
-          BSKY_PASS: ${{ secrets.BSKY_PASS }}
-          IMAGE_PATH: Thumbnail/Thumbnail.png
-        run: |
-          python post_bluesky.py
-
-      - name: Success message
-        if: success()
-        run: |
-          echo "Bluesky投稿完了！"
-
-      - name: Failure message
-        if: failure()
-        run: |
-          echo "Bluesky投稿に失敗しました…"
+    - name: Post to Bluesky
+      env:
+        BSKY_USER: ${{ secrets.BSKY_USER }}
+        BSKY_PASS: ${{ secrets.BSKY_PASS }}
+      run: python post_bluesky.py
