@@ -1,0 +1,23 @@
+name: Generate Image
+
+on:
+  schedule:
+    - cron: "3 0-22/2 * * *"  # JST 9:03 から2時間ごと
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install requests Pillow pytz
+
+    - name: Generate image
+      run: python spl3_schedule_ver0.py
