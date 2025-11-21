@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # ← repo へ push する権限
+  contents: write   # repo に push するために必要
 
 jobs:
   generate:
@@ -16,7 +16,8 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v3
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}  # workflow から push 可能にする
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0  # ← 履歴上書き(force push)のために必要
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -30,10 +31,19 @@ jobs:
     - name: Generate Thumbnail image
       run: python spl3_schedule_ver0.py
 
-    - name: Commit & push generated image
+    - name: Commit & force-push (overwrite single history)
       run: |
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
+
         git add Thumbnail/Thumbnail.png
-        git commit -m "Update thumbnail image"
-        git push origin main
+
+        # 変更なしでもエラーにしない
+        git commit -m "Update thumbnail image [skip ci]" || echo "No changes to commit"
+
+        # ここで履歴を常に1件だけにする
+        git fetch origin main
+        git reset --soft origin/main
+
+        # 強制プッシュで commit を1件だけに上書き
+        git push --force origin main
