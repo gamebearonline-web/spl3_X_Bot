@@ -3,6 +3,8 @@ name: Post to X
 on:
   workflow_dispatch:
 
+needs: generate
+
 jobs:
   post-x:
     runs-on: ubuntu-latest
