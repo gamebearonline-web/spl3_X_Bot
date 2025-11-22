@@ -9,7 +9,7 @@ def generate_default_text():
     jst = pytz.timezone('Asia/Tokyo')
     now = datetime.now(jst)
     time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
-    return f"【スプラ3】スケジュール更新！\n\n {time_str}\n画像で全ステージ確認してね！"
+    return f"【スプラ3】スケジュール更新！\n {time_str}\n#スプラトゥーン3スケジュール #スプラ3スケジュール #スプラ情報 #サーモンラン"
 
 
 def post_to_misskey(image_path, text):
