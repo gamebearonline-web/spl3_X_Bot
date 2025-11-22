@@ -25,7 +25,7 @@ def main():
     # time_str = now.strftime("%Y年%m月%d日 %H時更新").replace(" 0", " ").lstrip("0")
 
     # デフォルトのツイート文（環境変数で上書き可能）
-    default_text = f"【スプラ3】スケジュール更新！\n{time_str}"
+    default_text = f"【スプラ3】スケジュール更新！\n{time_str}\n#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     tweet_text = os.getenv("TWEET_TEXT", default_text)
 
     # 画像パス
