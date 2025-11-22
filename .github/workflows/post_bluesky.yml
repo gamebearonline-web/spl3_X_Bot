@@ -3,6 +3,8 @@ name: Post to Bluesky
 on:
   workflow_dispatch:
 
+needs: generate
+
 jobs:
   post-bsky:
     runs-on: ubuntu-latest
