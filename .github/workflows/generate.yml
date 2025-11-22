@@ -29,7 +29,6 @@ jobs:
       - name: Generate Thumbnail Image
         run: python spl3_schedule_ver0.py
 
-      # ★ artifact 保存（この行が重要）
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
         with:
