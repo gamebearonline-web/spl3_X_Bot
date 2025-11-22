@@ -3,6 +3,9 @@ name: Post to Bluesky
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   # ① generate.yml の generate job を呼び出す
   generate:
