@@ -3,6 +3,9 @@ name: Post to Misskey
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   # ① generate.yml を呼び出して画像を生成する
   generate:
