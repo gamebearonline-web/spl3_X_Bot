@@ -1,13 +1,17 @@
 name: Post to Misskey
 
 on:
-  workflow_dispatch:   # ← 手動実行 & GAS からの実行用（これだけ）
-
-needs: generate
+  workflow_dispatch:
 
 jobs:
-  misskey:
+  # ① generate.yml を呼び出して画像を生成する
+  generate:
+    uses: gamebearonline-web/spl3_X_Bot/.github/workflows/generate.yml@main
+
+  # ② generate 完了後に Misskey へ投稿
+  post-misskey:
     runs-on: ubuntu-latest
+    needs: generate
     timeout-minutes: 10
 
     steps:
@@ -20,16 +24,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: 'pip'            # ← 高速化！
+          cache: "pip"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Generate Splatoon 3 Schedule Image
-        run: |
-          python spl3_schedule_ver0.py
-          echo "画像生成完了 → Thumbnail/Thumbnail.png"
+        run: pip install -r requirements.txt
 
       - name: Post to Misskey
         env:
@@ -46,5 +44,4 @@ jobs:
 
       - name: Failure message
         if: failure()
-        run: |
-          echo "Misskey投稿に失敗しました…"
+        run: echo "Misskey投稿に失敗しました…"
