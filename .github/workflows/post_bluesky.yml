@@ -7,32 +7,39 @@ permissions:
   contents: write
 
 jobs:
-  # ① generate.yml の generate job を呼び出す
+  # ① generate.yml を呼び出す（画像生成→artifact保存）
   generate:
     uses: gamebearonline-web/spl3_X_Bot/.github/workflows/generate.yml@main
 
-  # ② generate 完了後に bluesky 投稿を実行
+  # ② artifact を受け取って BlueSky 投稿
   post-bsky:
     runs-on: ubuntu-latest
     needs: generate
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-        cache: "pip"
+      - name: Download Thumbnail artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: spl3-image
+          path: Thumbnail
 
-    - name: Install dependencies
-      run: pip install -r requirements.txt
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
-    - name: Post to Bluesky
-      env:
-        BSKY_USER: ${{ secrets.BSKY_USER }}
-        BSKY_PASS: ${{ secrets.BSKY_PASS }}
-      run: python post_bluesky.py
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Post to Bluesky
+        env:
+          BSKY_USER: ${{ secrets.BSKY_USER }}
+          BSKY_PASS: ${{ secrets.BSKY_PASS }}
+          IMAGE_PATH: Thumbnail/Thumbnail.png
+        run: python post_bluesky.py
