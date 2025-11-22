@@ -1,4 +1,3 @@
-# post_misskey.py
 import os
 import sys
 import requests
@@ -10,9 +9,8 @@ def generate_default_text():
     jst = pytz.timezone('Asia/Tokyo')
     now = datetime.now(jst)
     time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
-
-    # 先頭に改行を置かない（MisskeyもNG）
     return f"【スプラ3】スケジュール更新！\n\n {time_str}\n画像で全ステージ確認してね！"
+
 
 def post_to_misskey(image_path, text):
     token = os.getenv("MISSKEY_TOKEN")
@@ -23,33 +21,41 @@ def post_to_misskey(image_path, text):
     MISSKEY_API = "https://misskey.io/api"
 
     # ========== ① 画像アップロード ==========
-    files = {}
+    file_id = None
     if image_path and os.path.exists(image_path):
-        with open(image_path, "rb") as f:
-            files["file"] = ("thumbnail.png", f, "image/png")
 
-        upload_res = requests.post(
-            f"{MISSKEY_API}/drive/files/create",
-            headers={"Authorization": f"Bearer {token}"},
-            files=files
-        )
+        with open(image_path, "rb") as f:
+            files = {
+                "file": ("thumbnail.png", f, "image/png")
+            }
+            data = {
+                "i": token
+            }
+
+            upload_res = requests.post(
+                f"{MISSKEY_API}/drive/files/create",
+                data=data,
+                files=files
+            )
+
         if upload_res.status_code != 200:
             print("画像アップロード失敗:", upload_res.text)
             sys.exit(1)
 
         file_id = upload_res.json().get("id")
         print("Misskey 画像アップロード成功:", file_id)
+
     else:
         print("警告: 画像が見つかりません:", image_path)
-        file_id = None
 
-    # ========== ② テキストが空なら補完 ==========
+    # ========== ② テキスト補完 ==========
     if not text or text.strip() == "":
         text = generate_default_text()
         print("テキストが空だったため補完しました →", text.replace("\n", "\\n"))
 
-    # ========== ③ 投稿データ構築 ==========
+    # ========== ③ 投稿データ ==========
     note = {
+        "i": token,
         "text": text,
         "visibility": "public"
     }
@@ -57,10 +63,9 @@ def post_to_misskey(image_path, text):
     if file_id:
         note["fileIds"] = [file_id]
 
-    # ========== ④ Misskey へ投稿 ==========
+    # ========== ④ 投稿 ==========
     post_res = requests.post(
         f"{MISSKEY_API}/notes/create",
-        headers={"Authorization": f"Bearer {token}"},
         json=note
     )
 
@@ -73,13 +78,11 @@ def post_to_misskey(image_path, text):
 
 def main():
     text = os.getenv("TWEET_TEXT", "").strip()
-
     if not text:
         text = generate_default_text()
         print("TWEET_TEXT が無いためデフォルトテキスト使用")
 
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
-
     post_to_misskey(image_path, text)
 
 
