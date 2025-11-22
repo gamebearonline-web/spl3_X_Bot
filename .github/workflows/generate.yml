@@ -5,26 +5,33 @@ on:
   workflow_call:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   generate:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-        cache: "pip"     # ← pip キャッシュ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
-    - name: Install dependencies
-      run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-    - name: Generate Thumbnail Image
-      run: python spl3_schedule_ver0.py
+      - name: Generate Thumbnail Image
+        run: python spl3_schedule_ver0.py
+
+      # ★ artifact 保存（この行が重要）
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spl3-image
+          path: Thumbnail/Thumbnail.png
