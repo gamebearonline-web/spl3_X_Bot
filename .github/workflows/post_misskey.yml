@@ -3,6 +3,8 @@ name: Post to Misskey
 on:
   workflow_dispatch:   # ← 手動実行 & GAS からの実行用（これだけ）
 
+needs: generate
+
 jobs:
   misskey:
     runs-on: ubuntu-latest
