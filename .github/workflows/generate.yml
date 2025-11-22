@@ -28,13 +28,3 @@ jobs:
 
     - name: Generate Thumbnail Image
       run: python spl3_schedule_ver0.py
-
-    - name: Commit & push
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-
-        git add Thumbnail/Thumbnail.png
-        git commit -m "Update thumbnail [skip ci]" || echo "No changes"
-
-        git push
