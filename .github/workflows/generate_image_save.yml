@@ -1,0 +1,47 @@
+# .github/workflows/generate_image_save.yml
+name: generate_image_save  # 好きな名前でOK
+
+on:
+  workflow_dispatch:       # これも GAS or 手動から呼ぶ
+
+permissions:
+  contents: write          # リポジトリに commit/push するので write が必要
+
+jobs:
+  generate_and_save:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # デフォルトの GITHUB_TOKEN を使用
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run image generator
+        run: |
+          python spl3_schedule_ver0.py   # Thumbnail/Thumbnail.png を上書き生成
+
+      - name: Commit and push Thumbnail.png
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 変更があるときだけ commit
+          git add Thumbnail/Thumbnail.png
+
+          if git diff --cached --quiet; then
+            echo "No changes in Thumbnail.png. Skipping commit."
+          else
+            git commit -m "Update Thumbnail.png by generate_image_save"
+            git push
+          fi
