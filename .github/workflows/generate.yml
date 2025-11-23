@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
   workflow_call:
 
+# ★ GitHubリポジトリに push するために必要
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
@@ -15,7 +16,8 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,6 +31,16 @@ jobs:
       - name: Generate Thumbnail Image
         run: python spl3_schedule_ver0.py
 
+      # ★ ここで新しい Thumbnail.png を commit & push
+      - name: Commit and push updated image
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Thumbnail/Thumbnail.png
+          git commit -m "Update thumbnail image" || echo "No changes"
+          git push origin main
+
+      # （任意）artifact としても残す場合
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
         with:
