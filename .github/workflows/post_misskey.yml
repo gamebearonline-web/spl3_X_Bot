@@ -14,7 +14,6 @@ permissions:
 jobs:
   post-misskey:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
       - name: Checkout repo
@@ -48,7 +47,7 @@ jobs:
         if: success()
         run: |
           echo "Misskey投稿完了！"
-          echo "JST: $(TZ='Asia/Tokyo' date '+%Y-%m-%d %H:%M')"
+          echo "JST時刻: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
 
       - name: Failure message
         if: failure()
