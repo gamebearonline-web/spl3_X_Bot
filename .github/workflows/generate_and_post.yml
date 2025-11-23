@@ -5,7 +5,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: write   # ← push するので write が必要
+  contents: write
 
 jobs:
   generate_and_post:
@@ -38,8 +38,8 @@ jobs:
 
       - name: Post to Bluesky
         env:
-          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
-          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          BSKY_USER: ${{ secrets.BSKY_USER }}
+          BSKY_PASS: ${{ secrets.BSKY_PASS }}
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_bluesky.py
 
@@ -49,9 +49,6 @@ jobs:
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_misskey.py
 
-      # ============================
-      # 最新 PNG をリポジトリに保存
-      # ============================
       - name: Commit and push latest thumbnail
         run: |
           git config user.name "github-actions"
