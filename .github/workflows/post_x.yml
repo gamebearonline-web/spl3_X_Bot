@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read   # ← 追加
 
 jobs:
   post-x:
@@ -26,6 +27,7 @@ jobs:
           name: schedule-image
           path: Thumbnail
           run-id: ${{ github.event.inputs.artifact_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # ← 追加
 
       - name: Set up Python
         uses: actions/setup-python@v5
