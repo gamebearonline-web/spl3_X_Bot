@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read   # 投稿側は push しないので read で十分
 
 jobs:
-  # ① generate.yml を呼び出す（画像生成→artifact保存）
+  # ① generate.yml を呼び出す（画像生成 → repo に直接 push）
   generate:
     uses: gamebearonline-web/spl3_X_Bot/.github/workflows/generate.yml@main
 
-  # ② artifact を取得して Misskey 投稿
+  # ② push された最新画像で Misskey 投稿
   post-misskey:
     runs-on: ubuntu-latest
     needs: generate
@@ -22,12 +22,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Download Thumbnail artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: spl3-image
-          path: Thumbnail
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,7 +43,7 @@ jobs:
         if: success()
         run: |
           echo "Misskey投稿完了！"
-          echo "時刻（JST）: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
+          echo "JST時刻: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
 
       - name: Failure message
         if: failure()
