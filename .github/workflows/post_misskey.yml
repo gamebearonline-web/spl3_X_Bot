@@ -4,17 +4,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  # ① 画像生成 & repo に push
-  generate:
-    uses: gamebearonline-web/spl3_X_Bot/.github/workflows/generate.yml@main
-
-  # ② 最新画像で Misskey 投稿
   post-misskey:
     runs-on: ubuntu-latest
-    needs: generate
     timeout-minutes: 10
 
     steps:
@@ -23,6 +17,13 @@ jobs:
         with:
           fetch-depth: 1
 
+      # === 最新画像 artifact を取得 ===
+      - name: Download latest image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: schedule-image
+          path: Thumbnail
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -30,7 +31,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install requests Pillow pytz
 
       - name: Post to Misskey
         env:
