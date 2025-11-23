@@ -6,29 +6,45 @@ on:
 
 permissions:
   contents: read
-  actions: write    # gh workflow run に必要
+  actions: write   # gh workflow run に必要
 
 jobs:
   generate:
     runs-on: ubuntu-latest
 
     steps:
+      # -----------------------------
+      # 1. リポジトリをチェックアウト
+      # -----------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
+      # -----------------------------
+      # 2. Python セットアップ
+      # -----------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
+      # -----------------------------
+      # 3. 必要ライブラリインストール
+      # -----------------------------
       - name: Install dependencies
         run: pip install requests tweepy Pillow pytz
 
+      # -----------------------------
+      # 4. 画像生成スクリプト
+      # -----------------------------
       - name: Generate Thumbnail Image
         run: python spl3_schedule_ver0.py
 
-      # === 画像を artifact として保存 ===
+      # -----------------------------
+      # 5. artifact アップロード
+      # -----------------------------
       - name: Upload Thumbnail artifact
         uses: actions/upload-artifact@v4
         with:
@@ -36,12 +52,31 @@ jobs:
           path: Thumbnail/Thumbnail.png
           retention-days: 1
 
-      # === 投稿ワークフローを順番に起動 ===
+      # ========================================================
+      # ⚠ 重要：投稿ワークフローを "順番に" 起動させる部分
+      #     GH_TOKEN を必ず指定しないと gh CLI は動作しない
+      # ========================================================
+
+      # -----------------------------
+      # 6. X 投稿ワークフロー起動
+      # -----------------------------
       - name: ▶ Trigger post_x.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run post_x.yml --ref main
 
+      # -----------------------------
+      # 7. Bluesky 投稿ワークフロー起動
+      # -----------------------------
       - name: ▶ Trigger post_bluesky.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run post_bluesky.yml --ref main
 
+      # -----------------------------
+      # 8. Misskey 投稿ワークフロー起動
+      # -----------------------------
       - name: ▶ Trigger post_misskey.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run post_misskey.yml --ref main
