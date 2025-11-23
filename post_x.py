@@ -1,44 +1,79 @@
-name: Post to X
+import os
+import tweepy
+import sys
+from datetime import datetime
+import pytz
 
-on:
-  workflow_dispatch:
-    inputs:
-      artifact_run_id:
-        description: "Run ID of generate workflow"
-        required: true
-        type: string
+def main():
+    # GitHub Secrets / 環境変数から取得
+    consumer_key = os.getenv("TWITTER_API_KEY")
+    consumer_secret = os.getenv("TWITTER_API_SECRET")
+    access_token = os.getenv("TWITTER_ACCESS_TOKEN")
+    access_token_secret = os.getenv("TWITTER_ACCESS_SECRET")
 
-permissions:
-  contents: read
+    if not all([consumer_key, consumer_secret, access_token, access_token_secret]):
+        print("[ERROR] Twitter API credentials が不足しています")
+        sys.exit(1)
 
-jobs:
-  post-x:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # ===== JST 現在時刻 =====
+    jst = pytz.timezone('Asia/Tokyo')
+    now = datetime.now(jst)
+    time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    # ===== 投稿文 =====
+    default_text = (
+        f"【スプラ3】スケジュール更新！\n"
+        f"{time_str}\n"
+        f"#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
+    )
+    tweet_text = os.getenv("TWEET_TEXT", default_text)
 
-      - name: Download Thumbnail artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: schedule-image
-          path: Thumbnail
-          run-id: ${{ github.event.inputs.artifact_run_id }}
+    # ===== 画像パス =====
+    image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
+    if not os.path.exists(image_path):
+        print(f"[ERROR] 画像ファイルが見つかりません → {image_path}")
+        sys.exit(1)
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+    # ===== v1.1 (画像アップロード) =====
+    try:
+        auth = tweepy.OAuth1UserHandler(
+            consumer_key, consumer_secret,
+            access_token, access_token_secret
+        )
+        api_v1 = tweepy.API(auth)
+        media = api_v1.media_upload(filename=image_path)
+        media_id = str(media.media_id)
+        print(f"[INFO] 画像アップロード成功 → media_id={media_id}")
+    except Exception as e:
+        print("[ERROR] 画像アップロード失敗:", repr(e))
+        sys.exit(1)
 
-      - name: Install deps
-        run: pip install -r requirements.txt
+    # ===== v2 (投稿) =====
+    try:
+        client = tweepy.Client(
+            consumer_key=consumer_key,
+            consumer_secret=consumer_secret,
+            access_token=access_token,
+            access_token_secret=access_token_secret
+        )
 
-      - name: Post to X
-        env:
-          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
-        run: python post_x.py
+        response = client.create_tweet(
+            text=tweet_text,
+            media_ids=[media_id]
+        )
+        tweet_id = response.data["id"]
+
+        # 正しい投稿URL を作成
+        user_info = client.get_me()
+        username = user_info.data.username
+
+        print(f"[SUCCESS] 投稿完了 → https://x.com/{username}/status/{tweet_id}")
+        print(f"[INFO] 投稿内容:\n{tweet_text}")
+
+    except Exception as e:
+        print("[ERROR] ツイート投稿失敗:", repr(e))
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
