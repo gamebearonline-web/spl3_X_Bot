@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       artifact_run_id:
-        description: "Run ID of generate.yml"
+        description: "Run ID of generate workflow"
         required: true
         type: string
 
@@ -12,16 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  post-bsky:
+  post-bluesky:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
-      - name: Download artifact
+      - name: Download Thumbnail artifact
         uses: actions/download-artifact@v4
         with:
           name: schedule-image
@@ -32,9 +31,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
-      - name: Install dependencies
+      - name: Install deps
         run: pip install -r requirements.txt
 
       - name: Post to Bluesky
