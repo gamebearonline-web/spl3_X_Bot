@@ -1,0 +1,74 @@
+name: Generate and Post (All-in-One)
+
+on:
+  workflow_dispatch:
+  workflow_call:   # ← GAS からも呼べる
+
+permissions:
+  contents: read
+
+jobs:
+  generate_and_post:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ============================
+      # 1. リポジトリ checkout
+      # ============================
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ============================
+      # 2. Python セットアップ
+      # ============================
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install requests tweepy Pillow pytz python-dotenv
+
+      # ============================
+      # 3. ステージ画像生成
+      # ============================
+      - name: Generate image
+        run: python spl3_schedule_ver0.py
+
+      # ============================
+      # 4. X 投稿
+      # ============================
+      - name: Post to X
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          IMAGE_PATH: Thumbnail/Thumbnail.png
+        run: python post_x.py
+
+      # ============================
+      # 5. Bluesky 投稿
+      # ============================
+      - name: Post to Bluesky
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          IMAGE_PATH: Thumbnail/Thumbnail.png
+        run: python post_bluesky.py
+
+      # ============================
+      # 6. Misskey 投稿
+      # ============================
+      - name: Post to Misskey
+        env:
+          MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
+          IMAGE_PATH: Thumbnail/Thumbnail.png
+        run: python post_misskey.py
+
+      # ============================
+      # 完了
+      # ============================
+      - name: Done
+        run: echo "🎉 All posting completed!"
