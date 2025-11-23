@@ -1,0 +1,36 @@
+# .github/workflows/generate_image_artifact.yml
+name: generate_image_artifact  # 好きな名前でOK
+
+on:
+  workflow_dispatch:           # GAS から叩く前提（手動トリガー）
+
+permissions:
+  contents: read               # コード取得だけでOK
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run image generator
+        run: |
+          python spl3_schedule_ver0.py   # ← Thumbnail/Thumbnail.png を作るスクリプト
+
+      - name: Upload Thumbnail as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schedule-image           # 投稿側でこの名前で download
+          path: Thumbnail/Thumbnail.png
+          if-no-files-found: error
