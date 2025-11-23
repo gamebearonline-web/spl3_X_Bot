@@ -2,6 +2,10 @@ name: Post to Misskey
 
 on:
   workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -9,20 +13,19 @@ permissions:
 jobs:
   post-misskey:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      # === 最新画像 artifact を取得 ===
-      - name: Download latest image artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: schedule-image
           path: Thumbnail
+          repository: gamebearonline-web/spl3_X_Bot
+          run-id: ${{ github.event.inputs.artifact_run_id }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,20 +34,10 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install requests Pillow pytz
+        run: pip install -r requirements.txt
 
       - name: Post to Misskey
         env:
           MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_misskey.py
-
-      - name: Success message
-        if: success()
-        run: |
-          echo "Misskey投稿完了！"
-          echo "JST時刻: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
-
-      - name: Failure message
-        if: failure()
-        run: echo "Misskey投稿に失敗しました…"
