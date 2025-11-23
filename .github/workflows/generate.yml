@@ -5,7 +5,8 @@ on:
   workflow_call:
 
 permissions:
-  contents: write
+  contents: read
+  actions: write    # gh workflow run に必要
 
 jobs:
   generate:
@@ -14,8 +15,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # 重要！履歴を全部取る
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,17 +22,35 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      # ➜ requirements.txt を使わないので、この行は削除可能
       - name: Install dependencies
         run: pip install requests tweepy Pillow pytz
 
       - name: Generate Thumbnail Image
         run: python spl3_schedule_ver0.py
 
-      - name: Commit and push updated image
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add Thumbnail/Thumbnail.png
-          git commit -m "Update thumbnail image" || echo "No changes"
-          git push origin main
+      # === 画像を artifact として保存 ===
+      - name: Upload Thumbnail artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schedule-image
+          path: Thumbnail/Thumbnail.png
+          retention-days: 1
+
+      # === GitHub CLI セッティング ===
+      - name: Install GitHub CLI
+        uses: cli/cli@v3
+        with:
+          version: latest
+
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      # === 投稿ワークフローを順番に起動 ===
+      - name: ▶ Trigger post_x.yml
+        run: gh workflow run post_x.yml --ref main
+
+      - name: ▶ Trigger post_bluesky.yml
+        run: gh workflow run post_bluesky.yml --ref main
+
+      - name: ▶ Trigger post_misskey.yml
+        run: gh workflow run post_misskey.yml --ref main
