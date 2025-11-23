@@ -63,9 +63,12 @@ def main():
         )
         tweet_id = response.data["id"]
 
-        # 正しい投稿URL を作成
-        user_info = client.get_me()
-        username = user_info.data.username
+        # username の取得（安全に処理）
+        try:
+            user_info = client.get_me()
+            username = user_info.data.username if user_info.data else "unknown_user"
+        except:
+            username = "unknown_user"
 
         print(f"[SUCCESS] 投稿完了 → https://x.com/{username}/status/{tweet_id}")
         print(f"[INFO] 投稿内容:\n{tweet_text}")
