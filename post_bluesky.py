@@ -1,48 +1,66 @@
-# post_bluesky.py
+# post_bluesky.py (2025 Optimized)
 import os
 import sys
 import requests
 from datetime import datetime
 import pytz
 
+
 def generate_default_text():
-    """デフォルトの投稿文を生成（改行が先頭に来ないように注意）"""
+    """投稿文のデフォルトテンプレート（先頭に改行は置かない）"""
     jst = pytz.timezone('Asia/Tokyo')
     now = datetime.now(jst)
     time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
-    
-    # 重要：改行は2行目以降に配置（先頭に\nを置かない！）
-    return f"【スプラ3】スケジュール更新！\n\n {time_str}\nスプラ3スケジュール スプラトゥーン3 Splatoon3 サーモンラン"
+
+    return (
+        f"【スプラ3】スケジュール更新！\n"
+        f"\n"
+        f"{time_str}\n"
+        f"#スプラ3スケジュール #スプラトゥーン3 #Splatoon3"
+    )
+
+
+def bluesky_request(url, method="POST", headers=None, json=None, data=None):
+    """HTTP リクエストを安全にラップする"""
+    try:
+        res = requests.request(method, url, headers=headers, json=json, data=data)
+        if res.status_code not in (200, 201):
+            print(f"[ERROR] Bluesky API error ({url}) → status={res.status_code}")
+            print(res.text)
+            sys.exit(1)
+        return res.json()
+    except Exception as e:
+        print(f"[ERROR] Bluesky request失敗: {url} → {repr(e)}")
+        sys.exit(1)
+
 
 def post_to_bluesky(image_path, text):
     HANDLE = os.getenv("BSKY_USER")
     PASSWORD = os.getenv("BSKY_PASS")
 
     if not HANDLE or not PASSWORD:
-        print("Error: Bluesky の認証情報が不足しています")
+        print("[ERROR] Bluesky の認証情報が不足しています")
         sys.exit(1)
 
-    # ====== ① ログイン ======
-    login_res = requests.post(
+    # ===== ① ログイン =====
+    print("[INFO] Bluesky にログイン中...")
+    session = bluesky_request(
         "https://bsky.social/xrpc/com.atproto.server.createSession",
         json={"identifier": HANDLE, "password": PASSWORD}
     )
-    if login_res.status_code != 200:
-        print("ログイン失敗:", login_res.text)
-        sys.exit(1)
 
-    session = login_res.json()
     access_jwt = session["accessJwt"]
     did = session["did"]
-    print(f"Bluesky ログイン成功: {did}")
+    print(f"[INFO] ログイン成功: DID = {did}")
 
-    # ====== ② 画像アップロード ======
+    # ===== ② 画像アップロード（存在する場合のみ） =====
     blob = None
     if image_path and os.path.exists(image_path):
+        print(f"[INFO] 画像アップロード中... → {image_path}")
         with open(image_path, "rb") as f:
             img_bytes = f.read()
 
-        upload_res = requests.post(
+        upload_res = bluesky_request(
             "https://bsky.social/xrpc/com.atproto.repo.uploadBlob",
             headers={
                 "Authorization": f"Bearer {access_jwt}",
@@ -51,26 +69,22 @@ def post_to_bluesky(image_path, text):
             data=img_bytes
         )
 
-        if upload_res.status_code != 200:
-            print("画像アップロード失敗:", upload_res.text)
-            sys.exit(1)
-
-        blob = upload_res.json()["blob"]
-        print("Bluesky 画像アップロード成功")
+        blob = upload_res["blob"]
+        print("[INFO] 画像アップロード成功")
     else:
-        print("警告: 画像が見つかりません:", image_path)
+        print(f"[WARN] 画像ファイルが見つかりません → {image_path}")
 
-    # ====== ③ テキストが空ならデフォルト生成（ここでもガード）======
+    # ===== ③ 投稿文（空なら補完） =====
     if not text or text.strip() == "":
         text = generate_default_text()
-        print("テキストが空だったため補完しました →", text.replace("\n", "\\n"))
+        print("[INFO] 投稿文が空 → デフォルトで補完")
 
-    # ====== ④ 投稿データ ======
+    # ===== ④ 投稿データ作成 =====
     record = {
         "$type": "app.bsky.feed.post",
         "text": text,
         "langs": ["ja"],
-        "createdAt": datetime.now(tz=pytz.utc).isoformat().replace("+00:00", "Z")
+        "createdAt": datetime.now(pytz.utc).isoformat().replace("+00:00", "Z")
     }
 
     if blob:
@@ -90,28 +104,31 @@ def post_to_bluesky(image_path, text):
         "record": record
     }
 
-    # ====== ⑤ 投稿 ======
-    post_res = requests.post(
+    # ===== ⑤ 投稿 =====
+    print("[INFO] Bluesky に投稿中...")
+    result = bluesky_request(
         "https://bsky.social/xrpc/com.atproto.repo.createRecord",
         headers={"Authorization": f"Bearer {access_jwt}"},
         json=payload
     )
 
-    if post_res.status_code != 200:
-        print("投稿失敗:", post_res.text)
-        sys.exit(1)
+    # 投稿URL生成
+    rkey = result.get("cid", "")
+    if rkey:
+        print(f"[SUCCESS] Bluesky 投稿成功！")
+    else:
+        print("[WARN] 投稿成功したが URL を生成できません")
 
-    print("Bluesky 投稿成功！")
+    print("[INFO] 投稿文:\n", text)
 
 
 def main():
-    # 環境変数からテキスト取得（空でもOK）
+    # 環境変数からテキスト取得
     text = os.getenv("TWEET_TEXT", "").strip()
-    
-    # 空ならデフォルト生成（mainでも1回ガード）
+
     if not text:
         text = generate_default_text()
-        print("TWEET_TEXTが未設定 → デフォルトテキストを使用")
+        print("[INFO] TWEET_TEXT 未指定 → デフォルト使用")
 
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
 
