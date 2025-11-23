@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       artifact_run_id:
-        description: "Run ID of generate.yml"
+        description: "Run ID of generate workflow"
         required: true
         type: string
 
@@ -14,14 +14,13 @@ permissions:
 jobs:
   post-misskey:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
-      - name: Download artifact
+      - name: Download Thumbnail artifact
         uses: actions/download-artifact@v4
         with:
           name: schedule-image
@@ -32,9 +31,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
-      - name: Install dependencies
+      - name: Install deps
         run: pip install -r requirements.txt
 
       - name: Post to Misskey
@@ -42,13 +40,3 @@ jobs:
           MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_misskey.py
-
-      - name: Success message
-        if: success()
-        run: |
-          echo "Misskey投稿完了！"
-          echo "JST時刻: $(TZ='Asia/Tokyo' date '+%Y年%m月%d日 %H時%M分')"
-
-      - name: Failure message
-        if: failure()
-        run: echo "Misskey投稿に失敗しました…"
