@@ -12,12 +12,11 @@ jobs:
   generate:
     runs-on: ubuntu-latest
 
-    outputs:
-      artifact_run_id: ${{ steps.artifact.outputs.run-id }}
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,20 +30,21 @@ jobs:
       - name: Generate Thumbnail Image
         run: python spl3_schedule_ver0.py
 
-      # === アップロード ===
+      # ====================================================
+      # 🔥 artifact を正しく登録（id: upload が必須）
+      # ====================================================
       - name: Upload Thumbnail artifact
-        id: artifact
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: schedule-image
           path: Thumbnail/Thumbnail.png
           retention-days: 1
 
-      # === この workflow の run-id を表示 ===
-      - name: Show run ID
-        run: echo "Artifact run-id=${{ github.run_id }}"
-
-      # === post_x.yml を起動（run-id を渡す） ===
+      # ====================================================
+      # 🔥 post_x / post_bluesky / post_misskey に
+      #    artifact の run-id を渡す
+      # ====================================================
       - name: Trigger post_x.yml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
