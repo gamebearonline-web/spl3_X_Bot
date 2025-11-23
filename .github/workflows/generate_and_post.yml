@@ -1,8 +1,8 @@
 name: Generate and Post (All-in-One)
 
 on:
-  workflow_dispatch:
-  workflow_call:   # ← GAS からも呼べる
+  workflow_dispatch: {}   # ← これが無いと GAS から起動できない
+  workflow_call: {}       # ← GAS からの workflow_call も有効
 
 permissions:
   contents: read
@@ -12,15 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ============================
-      # 1. リポジトリ checkout
-      # ============================
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # ============================
-      # 2. Python セットアップ
-      # ============================
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -30,15 +24,9 @@ jobs:
       - name: Install dependencies
         run: pip install requests tweepy Pillow pytz python-dotenv
 
-      # ============================
-      # 3. ステージ画像生成
-      # ============================
       - name: Generate image
         run: python spl3_schedule_ver0.py
 
-      # ============================
-      # 4. X 投稿
-      # ============================
       - name: Post to X
         env:
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
@@ -48,28 +36,18 @@ jobs:
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_x.py
 
-# ============================
-# 5. Bluesky 投稿
-# ============================
-- name: Post to Bluesky
-  env:
-    BSKY_USER: ${{ secrets.BSKY_USER }}       # ← ここを BSKY_USER に
-    BSKY_PASS: ${{ secrets.BSKY_PASS }}       # ← ここを BSKY_PASS に
-    IMAGE_PATH: Thumbnail/Thumbnail.png
-  run: python post_bluesky.py
+      - name: Post to Bluesky
+        env:
+          BSKY_USER: ${{ secrets.BSKY_USER }}
+          BSKY_PASS: ${{ secrets.BSKY_PASS }}
+          IMAGE_PATH: Thumbnail/Thumbnail.png
+        run: python post_bluesky.py
 
-
-      # ============================
-      # 6. Misskey 投稿
-      # ============================
       - name: Post to Misskey
         env:
           MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_misskey.py
 
-      # ============================
-      # 完了
-      # ============================
       - name: Done
         run: echo "🎉 All posting completed!"
