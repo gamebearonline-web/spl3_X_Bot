@@ -1,11 +1,11 @@
 name: Generate and Post (All-in-One)
 
 on:
-  workflow_dispatch: {}   # ← これが無いと GAS から起動できない
-  workflow_call: {}       # ← GAS からの workflow_call も有効
+  workflow_dispatch:
+  workflow_call:
 
 permissions:
-  contents: read
+  contents: write   # ← push するので write が必要
 
 jobs:
   generate_and_post:
@@ -38,8 +38,8 @@ jobs:
 
       - name: Post to Bluesky
         env:
-          BSKY_USER: ${{ secrets.BSKY_USER }}
-          BSKY_PASS: ${{ secrets.BSKY_PASS }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_bluesky.py
 
@@ -48,6 +48,17 @@ jobs:
           MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_misskey.py
+
+      # ============================
+      # 最新 PNG をリポジトリに保存
+      # ============================
+      - name: Commit and push latest thumbnail
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Thumbnail/Thumbnail.png
+          git commit -m "Update Thumbnail $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes"
+          git push
 
       - name: Done
         run: echo "🎉 All posting completed!"
