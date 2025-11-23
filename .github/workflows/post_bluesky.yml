@@ -2,26 +2,30 @@ name: Post to Bluesky
 
 on:
   workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  post-bsky:
+  post-bluesky:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      # === 最新画像 artifact を取得 ===
-      - name: Download latest image artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: schedule-image
           path: Thumbnail
+          repository: gamebearonline-web/spl3_X_Bot
+          run-id: ${{ github.event.inputs.artifact_run_id }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,7 +34,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install requests Pillow pytz
+        run: pip install -r requirements.txt
 
       - name: Post to Bluesky
         env:
