@@ -346,6 +346,35 @@ COORDS_TABLE = {
 }
 
 # ==========================
+# ★ BIG RUN アイコン座標
+# ==========================
+BIG_RUN_COORDS = {
+    "now":   (998.564, 180, 150, 75),
+    "next":  (990, 340, 70, 35),
+    "next2": (990, 420, 70, 35),
+    "next3": (990, 501, 70, 35),
+    "next4": (990, 581, 70, 35),
+}
+
+def draw_big_run(base, slot, is_big_run):
+    """ビッグランの場合に big_run.png を描画"""
+    if not is_big_run:
+        return
+    if slot not in BIG_RUN_COORDS:
+        return
+
+    x, y, w, h = BIG_RUN_COORDS[slot]
+
+    icon_path = os.path.join(ICON_DIR, "big_run.png")
+    if not os.path.exists(icon_path):
+        return
+
+    img = Image.open(icon_path).convert("RGBA")
+    img = img.resize((int(w), int(h)))
+    base.paste(img, (int(x), int(y)), img)
+
+
+# ==========================
 # ★ BOSS（オカシラ）
 # ==========================
 BOSS_COORDS = {
@@ -468,7 +497,7 @@ def render_versus_mode(base, mode, results):
         draw_rule_icon(base, mode, slot, rule_key)
 
 # ==========================
-# ★ サーモンラン
+# ★ サーモンラン（ビッグラン対応）
 # ==========================
 def render_salmon_mode(base, results):
     coords_mode = COORDS_TABLE["salmon"]
@@ -483,6 +512,7 @@ def render_salmon_mode(base, results):
         cslot = coords_mode[slot]
 
         boss_id = info.get("boss", {}).get("id")
+        is_big_run = info.get("is_big_run", False)
 
         start_label = format_salmon_datetime(info["start_time"])
         end_label   = "~" + format_salmon_datetime(info["end_time"])
@@ -516,6 +546,8 @@ def render_salmon_mode(base, results):
 
         draw_salmon_weapons(base, slot, info.get("weapons", []))
         draw_boss_icon(base, slot, boss_id)
+        draw_big_run(base, slot, is_big_run)
+
 
 # ==========================
 # ★ メイン
@@ -556,7 +588,3 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
-
-
-
-
