@@ -21,6 +21,7 @@ jobs:
         with:
           fetch-depth: 1
 
+      # artifact を受け取る
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
