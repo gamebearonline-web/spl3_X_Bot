@@ -48,15 +48,16 @@ jobs:
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_x.py
 
-      # ============================
-      # 5. Bluesky 投稿
-      # ============================
-      - name: Post to Bluesky
-        env:
-          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
-          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
-          IMAGE_PATH: Thumbnail/Thumbnail.png
-        run: python post_bluesky.py
+# ============================
+# 5. Bluesky 投稿
+# ============================
+- name: Post to Bluesky
+  env:
+    BSKY_USER: ${{ secrets.BSKY_USER }}       # ← ここを BSKY_USER に
+    BSKY_PASS: ${{ secrets.BSKY_PASS }}       # ← ここを BSKY_PASS に
+    IMAGE_PATH: Thumbnail/Thumbnail.png
+  run: python post_bluesky.py
+
 
       # ============================
       # 6. Misskey 投稿
