@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       artifact_run_id:
+        description: "Run ID of generate.yml"
         required: true
         type: string
 
@@ -13,9 +14,11 @@ permissions:
 jobs:
   post-misskey:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
@@ -24,7 +27,6 @@ jobs:
         with:
           name: schedule-image
           path: Thumbnail
-          repository: gamebearonline-web/spl3_X_Bot
           run-id: ${{ github.event.inputs.artifact_run_id }}
 
       - name: Set up Python
@@ -41,3 +43,13 @@ jobs:
           MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_misskey.py
+
+      - name: Success message
+        if: success()
+        run: |
+          echo "Misskey投稿完了！"
+          echo "JST: $(TZ='Asia/Tokyo' date '+%Y-%m-%d %H:%M')"
+
+      - name: Failure message
+        if: failure()
+        run: echo "Misskey投稿に失敗しました…"
