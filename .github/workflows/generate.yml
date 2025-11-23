@@ -15,8 +15,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0   # 重要！履歴を全部取る
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,27 +23,17 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      # ➜ requirements.txt を使わないので、この行は削除可能
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install requests tweepy Pillow pytz
 
       - name: Generate Thumbnail Image
         run: python spl3_schedule_ver0.py
 
-      # ★★ push 衝突対策：最新 main を取り込んでから push
-      - name: Pull latest main
+      - name: Commit and push updated image
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git pull origin main --no-edit
-
-      - name: Commit and push updated image
-        run: |
           git add Thumbnail/Thumbnail.png
           git commit -m "Update thumbnail image" || echo "No changes"
           git push origin main
-
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: spl3-image
-          path: Thumbnail/Thumbnail.png
