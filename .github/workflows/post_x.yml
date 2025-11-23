@@ -7,9 +7,11 @@ permissions:
   contents: write
 
 jobs:
+  # ① 画像生成 & repo に push
   generate:
     uses: gamebearonline-web/spl3_X_Bot/.github/workflows/generate.yml@main
 
+  # ② push された最新画像で X 投稿
   post-x:
     runs-on: ubuntu-latest
     needs: generate
