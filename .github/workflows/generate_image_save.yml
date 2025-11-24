@@ -13,6 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          token: ${{ secrets.GITHUB_PAT }}     # ← これが最重要！
           persist-credentials: true
 
       - uses: actions/setup-python@v5
