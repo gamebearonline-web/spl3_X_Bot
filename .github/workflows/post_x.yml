@@ -1,43 +1,57 @@
 name: Post to X
 
 on:
-  workflow_dispatch:   # GAS から起動する
+  workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   post-x:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install deps
         run: pip install -r requirements.txt
 
-      # ===========================
-      # ★ 画像生成（ここを追加）
-      # ===========================
-      - name: Generate schedule image
-        run: python spl3_schedule_ver0.py
-        # → Thumbnail/Thumbnail.png を生成するスクリプト
+      # ======================
+      # ★ 投稿専用画像生成（保存はしない）
+      # ======================
+      - name: Generate image for POST
+        run: |
+          python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+        # ※ スクリプト側で --output を受け取れるようにしておく
 
-      # ===========================
-      # ★ X へ投稿
-      # ===========================
+      # ======================
+      # ★ artifact に画像をアップロード
+      # ======================
+      - name: Upload image artifact (POST)
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-image
+          path: /tmp/Thumbnail.png
+
+      # ======================
+      # ★ artifact をダウンロードして投稿
+      # ======================
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: post-image
+          path: .
+
       - name: Post to X
         env:
-          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_API_KEY:     ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET:  ${{ secrets.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
-          IMAGE_PATH: Thumbnail/Thumbnail.png
+          IMAGE_PATH: ./Thumbnail.png
         run: python post_x.py
