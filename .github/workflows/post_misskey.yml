@@ -1,41 +1,42 @@
 name: Post to Misskey
 
 on:
-  workflow_dispatch:   # GASから直接叩く
+  workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   post-misskey:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt
 
-      # ===========================
-      # ★ 画像生成（artifact廃止）
-      # ===========================
-      - name: Generate schedule image
-        run: python spl3_schedule_ver0.py
-        # → Thumbnail/Thumbnail.png を生成
+      - name: Generate image for POST
+        run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
 
-      # ===========================
-      # ★ Misskey へ投稿
-      # ===========================
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-image
+          path: /tmp/Thumbnail.png
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: post-image
+          path: .
+
       - name: Post to Misskey
         env:
           MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
-          MISSKEY_URL: ${{ secrets.MISSKEY_URL }}  # ← MisskeyインスタンスURLも必要
-          IMAGE_PATH: Thumbnail/Thumbnail.png
+          MISSKEY_URL:   ${{ secrets.MISSKEY_URL }}
+          IMAGE_PATH: ./Thumbnail.png
         run: python post_misskey.py
