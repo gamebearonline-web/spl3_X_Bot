@@ -4,29 +4,26 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # ← 保存するため必須
+  contents: write
 
 jobs:
   generate-and-save:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          persist-credentials: true  # ← push を有効化
+          persist-credentials: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - name: Run image generator
-        run: python spl3_schedule_ver0.py
+      - name: Run image generator (SAVE)
+        run: python spl3_schedule_ver0.py   # ← デフォルトで Thumbnail に保存
 
       - name: Commit and Push
         run: |
@@ -36,8 +33,8 @@ jobs:
           git add Thumbnail/Thumbnail.png
 
           if git diff --cached --quiet; then
-            echo "No changes in Thumbnail.png. Skipping commit."
-          else
-            git commit -m "Update Thumbnail.png by generate_image_save"
+            echo "No changes. Skip commit."
+          else:
+            git commit -m "Update Thumbnail.png"
             git push
           fi
