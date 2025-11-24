@@ -13,7 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # ← これがないと push は正常に動作しないことがある！
+          fetch-depth: 0
+          persist-credentials: true
 
       - uses: actions/setup-python@v5
         with:
@@ -25,12 +26,15 @@ jobs:
       - name: Run image generator (SAVE)
         run: python spl3_schedule_ver0.py
 
-      - name: Commit and Push
+      - name: Commit and Push (always commit)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # 画像をステージ
           git add Thumbnail/Thumbnail.png
 
-          git commit -m "Update Thumbnail.png" || echo "No changes"
-          git push origin HEAD:main || echo "Push failed"
+          # 差分がなくても必ずコミットを作成
+          git commit --allow-empty -m "Update Thumbnail.png (force)"
+
+          git push origin HEAD:main
