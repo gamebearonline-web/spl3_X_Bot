@@ -20,23 +20,35 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # ======================
+      # ★ 投稿専用画像生成（保存はしない）
+      # ======================
       - name: Generate image for POST
         run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
 
+      # ======================
+      # ★ artifact アップロード
+      # ======================
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: post-image
           path: /tmp/Thumbnail.png
 
+      # ======================
+      # ★ artifact ダウンロード
+      # ======================
       - uses: actions/download-artifact@v4
         with:
           name: post-image
-          path: .
+          path: post-image
 
+      # ======================
+      # ★ Bluesky 投稿
+      # ======================
       - name: Post to Bluesky
         env:
           BSKY_USER: ${{ secrets.BSKY_USER }}
           BSKY_PASS: ${{ secrets.BSKY_PASS }}
-          IMAGE_PATH: ./Thumbnail.png
+          IMAGE_PATH: post-image/Thumbnail.png   # ← ここを修正
         run: python post_bluesky.py
