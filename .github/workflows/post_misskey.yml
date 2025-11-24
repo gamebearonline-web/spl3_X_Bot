@@ -1,16 +1,10 @@
 name: Post to Misskey
 
 on:
-  workflow_dispatch:
-    inputs:
-      artifact_run_id:
-        description: "Run ID of generate workflow"
-        required: true
-        type: string
+  workflow_dispatch:   # GASから直接叩く
 
 permissions:
   contents: read
-  actions: read       # ← 追加（必須）
 
 jobs:
   post-misskey:
@@ -21,24 +15,27 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Download Thumbnail artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: schedule-image
-          path: Thumbnail
-          run-id: ${{ github.event.inputs.artifact_run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}   # ← 追加（必須）
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install deps
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # ===========================
+      # ★ 画像生成（artifact廃止）
+      # ===========================
+      - name: Generate schedule image
+        run: python spl3_schedule_ver0.py
+        # → Thumbnail/Thumbnail.png を生成
+
+      # ===========================
+      # ★ Misskey へ投稿
+      # ===========================
       - name: Post to Misskey
         env:
           MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
+          MISSKEY_URL: ${{ secrets.MISSKEY_URL }}  # ← MisskeyインスタンスURLも必要
           IMAGE_PATH: Thumbnail/Thumbnail.png
         run: python post_misskey.py
