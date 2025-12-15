@@ -468,6 +468,17 @@ def draw_fest_overlay(base):
         img = img.resize((int(w), int(h)))
         base.paste(img, (int(x), int(y)), img)
 
+
+FEST_OVERLAY = {
+    "now":   ("fest/now_fest.png",  (20, 10, 920, 310)),
+    "next":  ("fest/next_fest.png", (20, 320, 920, 81)),
+    "next2": ("fest/next_fest.png", (20, 400, 920, 81)),
+    "next3": ("fest/next_fest.png", (20, 480, 920, 81)),
+    "next4": ("fest/next_fest.png", (20, 560, 920, 81)),
+}
+
+
+
 def render_fest_mode(base, results):
     draw = ImageDraw.Draw(base)
     color = (255, 80, 200)  # フェス用カラー（好みで）
@@ -674,4 +685,5 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
