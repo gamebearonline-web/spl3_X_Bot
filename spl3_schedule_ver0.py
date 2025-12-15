@@ -109,6 +109,17 @@ BIG_RUN_COORDS = {
     "next4": (990, 581, 70, 35),
 }
 
+def is_fest_now(fest_results):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for r in fest_results:
+        start = datetime.datetime.fromisoformat(r["start_time"])
+        end   = datetime.datetime.fromisoformat(r["end_time"])
+        if start <= now <= end:
+            return True
+    return False
+
+
+
 # ==========================
 # ★ フェス背景オーバーレイ座標
 # ==========================
@@ -679,20 +690,32 @@ def main():
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
+    # テンプレート読み込み
     base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-
-    # --- フェス判定 ---
+    # ==========================
+    # フェス判定
+    # ==========================
     fest_results = fetch_fest_schedule()
+    is_fest_active = fest_results and is_fest_now(fest_results)
 
+    # ==========================
+    # レギュラー（常に描画）
+    # ==========================
     try:
-        render_versus_mode(base, "regular",
-            fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
+        render_versus_mode(
+            base,
+            "regular",
+            fetch_schedule("https://spla3.yuu26.com/api/regular/schedule")
+        )
     except Exception as e:
         print("[REGULAR ERR]", e)
 
-    if fest_results:
-        print("🎉 フェス開催中")
+    # ==========================
+    # フェス開催中
+    # ==========================
+    if is_fest_active:
+        print("🎉 フェス開催中（NOW）")
 
         fest_open, fest_challenge, fest_tricolor = split_fest_results(fest_results)
 
@@ -714,34 +737,54 @@ def main():
         except Exception as e:
             print("[TRICOLOR ERR]", e)
 
+    # ==========================
+    # 通常時
+    # ==========================
     else:
-        # --- 通常時 ---
         try:
-            render_versus_mode(base, "open",
-                fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
+            render_versus_mode(
+                base,
+                "open",
+                fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule")
+            )
         except Exception as e:
             print("[OPEN ERR]", e)
 
         try:
-            render_versus_mode(base, "challenge",
-                fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"))
+            render_versus_mode(
+                base,
+                "challenge",
+                fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule")
+            )
         except Exception as e:
             print("[CHALLENGE ERR]", e)
 
         try:
-            render_versus_mode(base, "xmatch",
-                fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
+            render_versus_mode(
+                base,
+                "xmatch",
+                fetch_schedule("https://spla3.yuu26.com/api/x/schedule")
+            )
         except Exception as e:
             print("[XMATCH ERR]", e)
 
-
+    # ==========================
+    # サーモンラン
+    # ==========================
     try:
-        render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
+        render_salmon_mode(
+            base,
+            fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule")
+        )
     except Exception as e:
         print("[SALMON ERR]", e)
 
+    # ==========================
+    # 保存
+    # ==========================
     base.save(OUTPUT_PATH)
     print("出力完了:", OUTPUT_PATH)
+
 
 
 # ==========================
@@ -749,6 +792,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
