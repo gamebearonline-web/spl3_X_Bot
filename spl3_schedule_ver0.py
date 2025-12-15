@@ -466,6 +466,14 @@ def draw_salmon_weapons(base, slot, weapons):
 # ★ フェス用
 # ==========================
 
+MODE_COLORS_FEST = {
+    "regular":  (231, 212, 39),
+    "open":     (94,  77, 229),
+    "tricolor": (247, 75, 79),
+}
+
+
+
 def is_fest_now():
     """
     フェスが「現在開催中」のときのみ True を返す
@@ -732,6 +740,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
