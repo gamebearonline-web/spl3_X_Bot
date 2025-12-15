@@ -553,7 +553,6 @@ def split_fest_results(fest_results):
 
     return open_list, challenge_list, tricolor_list
 
-
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
 # ==========================
@@ -562,12 +561,13 @@ def render_versus_mode(base, mode, results):
     draw = ImageDraw.Draw(base)
     color = MODE_COLORS[mode]
 
-for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
-    if slot not in coords_mode or idx >= len(results):
-        continue
+    for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
+        if slot not in coords_mode or idx >= len(results):
+            continue
 
-    # ★ フェス背景（フェス用データが来たときのみ）
-    if info := results[idx]:
+        info = results[idx]
+
+        # ★ フェス背景（フェス時のみ）
         if info.get("rule", {}).get("key") in ("turf_war", "tricolor"):
             draw_fest_background(base, slot)
 
@@ -588,9 +588,10 @@ for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
             draw_text_with_bg(draw, cslot["start_time"], time_text, font_time, bg_fill=color)
 
         stages = info.get("stages", [])
-        for i in [0, 1]:
+        for i in (0, 1):
             if i >= len(stages):
                 continue
+
             stg = stages[i]
             img_key  = f"stage{i}_image"
             name_key = f"stage{i}_name"
@@ -609,6 +610,8 @@ for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
 
         rule_key = info.get("rule", {}).get("key")
         draw_rule_icon(base, mode, slot, rule_key)
+
+
 
 # ==========================
 # ★ サーモンラン（ビッグラン対応）
@@ -748,6 +751,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
