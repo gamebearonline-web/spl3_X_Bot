@@ -595,8 +595,8 @@ def render_versus_mode(base, mode, results):
         info = results[idx]
         cslot = coords_mode[slot]
 
-        st = datetime.datetime.fromisoformat(info["start_time"]).strftime("%H:%M")
-        et = datetime.datetime.fromisoformat(info["end_time"]).strftime("%H:%M")
+        st = parse_utc(info["start_time"]).strftime("%H:%M")
+        et = parse_utc(info["end_time"]).strftime("%H:%M")
         time_text = f"{st}~{et}"
 
         if slot == "now":
@@ -724,6 +724,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
