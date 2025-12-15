@@ -472,6 +472,45 @@ def fetch_fest_schedule():
     except Exception:
         return None
 
+# ==========================
+# ★ フェス結果を open / challenge / tricolor に分解
+# ==========================
+def split_fest_results(fest_results):
+    open_list = []
+    challenge_list = []
+    tricolor_list = []
+
+    for r in fest_results:
+        # ---------- フェス（オープン / チャレンジ） ----------
+        fest = r.get("festMatchSettings")
+        if fest:
+            rule = fest.get("rule", {}).get("key")
+
+            entry = {
+                "start_time": r["start_time"],
+                "end_time":   r["end_time"],
+                "stages":     fest.get("stages", []),
+                "rule":       fest.get("rule"),
+            }
+
+            # turf_war → フェスオープン
+            if rule == "turf_war":
+                open_list.append(entry)
+            else:
+                # それ以外 → フェスチャレンジ
+                challenge_list.append(entry)
+
+        # ---------- トリカラ ----------
+        tri = r.get("tricolorMatchSettings")
+        if tri:
+            tricolor_list.append({
+                "start_time": r["start_time"],
+                "end_time":   r["end_time"],
+                "stages":     tri.get("stages", []),
+                "rule":       {"key": "tricolor"},
+            })
+
+    return open_list, challenge_list, tricolor_list
 
 
 # ==========================
@@ -596,10 +635,6 @@ def main():
 
     base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-    try:
-        render_versus_mode(base, "regular", fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
-    except Exception as e:
-        print("[REGULAR ERR]", e)
 
     # --- フェス判定 ---
     fest_results = fetch_fest_schedule()
@@ -668,4 +703,5 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
