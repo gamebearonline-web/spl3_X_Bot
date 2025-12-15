@@ -70,9 +70,10 @@ FONT_STAGE_SMALL = load_font(10)
 # ★ サーモン用 日付＋曜日
 # ==========================
 def format_salmon_datetime(iso_str: str) -> str:
-    dt = datetime.datetime.fromisoformat(iso_str)
+    dt = parse_utc(iso_str)
     weekday = "月火水木金土日"[dt.weekday()]
     return dt.strftime(f"%m/%d({weekday}) %H:%M")
+
 
 # ==========================
 # ★ テキスト描画ユーティリティ
@@ -139,6 +140,17 @@ def draw_rule_icon(base, mode, slot, rule_key):
     icon = Image.open(icon_path).convert("RGBA")
     icon = icon.resize((int(w), int(h)))
     base.paste(icon, (int(x), int(y)), icon)
+
+
+def parse_utc(iso_str: str) -> datetime.datetime:
+    """
+    ISO8601(Z付き) を timezone-aware な datetime に変換
+    """
+    return datetime.datetime.fromisoformat(
+        iso_str.replace("Z", "+00:00")
+    )
+
+
 
 # ==========================
 # ★ ステージ座標（regular / open / challenge / xmatch / salmon）
@@ -506,18 +518,8 @@ FEST_OVERLAY = {
     "next4": ("fest/next_fest.png", (20, 560, 920, 81)),
 }
 
-MODE_COLORS_FEST = {
-    "regular":  (231, 212, 39),
-    "open":     (94,  77, 229),
-    "tricolor": (247, 75, 79),
-}
 
 
-
-
-    for mode, data in results.items():
-        if mode not in coords:
-            continue
 
         for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
             if idx >= len(data):
@@ -526,8 +528,9 @@ MODE_COLORS_FEST = {
             info = data[idx]
             cslot = coords[mode][slot]
 
-            st = datetime.datetime.fromisoformat(info["start_time"]).strftime("%H:%M")
-            et = datetime.datetime.fromisoformat(info["end_time"]).strftime("%H:%M")
+            st = parse_utc(info["start_time"]).strftime("%H:%M")
+            et = parse_utc(info["end_time"]).strftime("%H:%M")
+
 
             if "start_time" in cslot:
                 draw_text_with_bg(
@@ -773,6 +776,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
