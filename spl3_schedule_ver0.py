@@ -450,6 +450,77 @@ def draw_salmon_weapons(base, slot, weapons):
         except Exception:
             pass
 
+# ==========================
+# ★フェス用
+# ==========================
+def is_fest_now():
+    try:
+        data = fetch_schedule("https://spla3.yuu26.com/api/fest/schedule")
+        return len(data) > 0
+    except Exception:
+        return False
+
+def draw_fest_overlay(base):
+    for slot, (path, (x, y, w, h)) in FEST_OVERLAY.items():
+        if not os.path.exists(path):
+            continue
+        img = Image.open(path).convert("RGBA")
+        img = img.resize((int(w), int(h)))
+        base.paste(img, (int(x), int(y)), img)
+
+def render_fest_mode(base, results):
+    draw = ImageDraw.Draw(base)
+    color = (255, 80, 200)  # フェス用カラー（好みで）
+
+    coords = {
+        "open": coords_open,
+        "regular": coords_regular,
+        "tricolor": coords_xmatch,  # X枠を流用
+    }
+
+    for mode, data in results.items():
+        if mode not in coords:
+            continue
+
+        for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
+            if idx >= len(data):
+                continue
+
+            info = data[idx]
+            cslot = coords[mode][slot]
+
+            st = datetime.datetime.fromisoformat(info["start_time"]).strftime("%H:%M")
+            et = datetime.datetime.fromisoformat(info["end_time"]).strftime("%H:%M")
+
+            if "start_time" in cslot:
+                draw_text_with_bg(
+                    draw,
+                    cslot["start_time"],
+                    f"{st}~{et}",
+                    FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL,
+                    bg_fill=color,
+                )
+
+            stages = info.get("stages", [])
+            for i in [0, 1]:
+                if i >= len(stages):
+                    continue
+                stg = stages[i]
+
+                if f"stage{i}_image" in cslot:
+                    ix, iy, iw, ih = cslot[f"stage{i}_image"]
+                    img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
+                    base.paste(img, (int(ix), int(iy)))
+
+                if f"stage{i}_name" in cslot:
+                    draw_text_with_bg(
+                        draw,
+                        cslot[f"stage{i}_name"],
+                        stg["name"],
+                        FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL,
+                        bg_fill=color,
+                    )
+
 
 # ==========================
 # ★ API 共通（Session使用）
@@ -568,46 +639,34 @@ def render_salmon_mode(base, results):
 # ★ メイン
 # ==========================
 def main():
-    global OUTPUT_PATH
-
-    # --- 引数処理 ---
     args = parse_args()
-    OUTPUT_PATH = args.output  # 上書き
-
-    # 保存先のフォルダを作成
-    out_dir = os.path.dirname(OUTPUT_PATH)
-    if out_dir and not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
-
     base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-    try:
-        render_versus_mode(base, "regular", fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
-    except Exception as e:
-        print("[REGULAR ERR]", e)
+    fest = is_fest_now()
 
-    try:
-        render_versus_mode(base, "open", fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
-    except Exception as e:
-        print("[OPEN ERR]", e)
+    if fest:
+        print("🎉 フェスモード")
+        draw_fest_overlay(base)
 
-    try:
+        fest_results = {
+            "open":      fetch_schedule("https://spla3.yuu26.com/api/fest/open/schedule"),
+            "regular":   fetch_schedule("https://spla3.yuu26.com/api/fest/regular/schedule"),
+            "tricolor":  fetch_schedule("https://spla3.yuu26.com/api/fest/tricolor/schedule"),
+        }
+        render_fest_mode(base, fest_results)
+
+    else:
+        print("⚔ 通常モード")
+        render_versus_mode(base, "regular",   fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
+        render_versus_mode(base, "open",      fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
         render_versus_mode(base, "challenge", fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"))
-    except Exception as e:
-        print("[CHALLENGE ERR]", e)
+        render_versus_mode(base, "xmatch",    fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
 
-    try:
-        render_versus_mode(base, "xmatch", fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
-    except Exception as e:
-        print("[XMATCH ERR]", e)
+    render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
 
-    try:
-        render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
-    except Exception as e:
-        print("[SALMON ERR]", e)
+    base.save(args.output)
+    print("出力完了:", args.output)
 
-    base.save(OUTPUT_PATH)
-    print("出力完了:", OUTPUT_PATH)
 
 
 # ==========================
@@ -615,3 +674,4 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
