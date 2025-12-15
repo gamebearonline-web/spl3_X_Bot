@@ -503,17 +503,25 @@ def render_versus_mode(base, mode, results):
         # ==========================
         # ★ フェス開催中 slot 判定
         # ==========================
-        is_fest_slot = is_fest_active_slot(
-           info["start_time"],
-           info["end_time"],
+        is_fest_slot = (
+         is_fest_now() and
+         is_fest_active_slot(
+            info["start_time"],
+            info["end_time"],
+          )
         )
 
 
+
         # 文字背景色（デフォルト or フェス用）
-        if is_fest_slot and mode in FEST_TEXT_BG:
-            text_bg_color = FEST_TEXT_BG[mode]
+        if is_fest_slot:
+           if mode in ("open", "challenge"):
+              bg_color = "#e8d526"
+           elif mode == "xmatch":
+              bg_color = "#664dde"
         else:
-            text_bg_color = default_color
+           bg_color = MODE_COLORS[mode]
+
 
         # ==========================
         # ★ 時間表示
@@ -667,6 +675,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
