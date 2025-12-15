@@ -22,7 +22,8 @@ def parse_args():
 # ==========================
 # ★ パス設定
 # ==========================
-TEMPLATE_PATH = "spl3_Schedule_Template_ver0.png"
+TEMPLATE_PATH      = "spl3_Schedule_Template_ver0.png"
+TEMPLATE_FEST_PATH = "spl3_Schedule_Template_fest.png"
 OUTPUT_PATH   = "Thumbnail/Thumbnail.png"
 ICON_DIR      = "icon"
 
@@ -799,6 +800,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
