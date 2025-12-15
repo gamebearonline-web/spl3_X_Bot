@@ -140,6 +140,35 @@ def draw_rule_icon(base, mode, slot, rule_key):
     icon = icon.resize((int(w), int(h)))
     base.paste(icon, (int(x), int(y)), icon)
 
+
+# ==========================
+# ★ フェス背景描画
+# ==========================
+def draw_fest_background(base, slot):
+    if slot not in FEST_BG_COORDS:
+        return
+
+    # now / next〜で使う画像を切り替え
+    if slot == "now":
+        bg_path = os.path.join("fest", "now_fest.png")
+    else:
+        bg_path = os.path.join("fest", "next_fest.png")
+
+    if not os.path.exists(bg_path):
+        return
+
+    x, y, w, h = FEST_BG_COORDS[slot]
+
+    try:
+        bg = Image.open(bg_path).convert("RGBA")
+        bg = bg.resize((int(w), int(h)))
+        base.paste(bg, (int(x), int(y)), bg)
+    except Exception:
+        pass
+
+
+
+
 # ==========================
 # ★ ステージ座標（regular / open / challenge / xmatch / salmon）
 # ==========================
@@ -371,6 +400,18 @@ BIG_RUN_COORDS = {
     "next4": (990, 581, 70, 35),
 }
 
+# ==========================
+# ★ フェス背景オーバーレイ座標
+# ==========================
+FEST_BG_COORDS = {
+    "now":   (20, 10,    920, 310.4),
+    "next":  (20, 320.4, 920, 81),
+    "next2": (20, 400.4, 920, 81),
+    "next3": (20, 480.5, 920, 81),
+    "next4": (20, 560,   920, 81),
+}
+
+
 def draw_big_run(base, slot, is_big_run):
     """ビッグランの場合に big_run.png を描画"""
     if not is_big_run:
@@ -521,11 +562,15 @@ def render_versus_mode(base, mode, results):
     draw = ImageDraw.Draw(base)
     color = MODE_COLORS[mode]
 
-    for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
-        if slot not in coords_mode or idx >= len(results):
-            continue
+for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
+    if slot not in coords_mode or idx >= len(results):
+        continue
 
-        info = results[idx]
+    # ★ フェス背景（フェス用データが来たときのみ）
+    if info := results[idx]:
+        if info.get("rule", {}).get("key") in ("turf_war", "tricolor"):
+            draw_fest_background(base, slot)
+
         cslot = coords_mode[slot]
 
         st = datetime.datetime.fromisoformat(info["start_time"]).strftime("%H:%M")
@@ -703,5 +748,6 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
