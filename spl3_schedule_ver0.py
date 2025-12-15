@@ -576,9 +576,21 @@ def render_fest_mode(base, results):
 # ★ API 共通（Session使用）
 # ==========================
 def fetch_schedule(url):
-    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"})
-    resp.raise_for_status()
-    return resp.json()["results"]
+    try:
+        resp = requests.get(url, timeout=10)
+
+        # フェスAPIは 403 / 404 があり得る
+        if resp.status_code != 200:
+            print(f"⚠ fetch_schedule skipped ({resp.status_code}): {url}")
+            return []
+
+        data = resp.json()
+        return data.get("results", [])
+
+    except Exception as e:
+        print(f"⚠ fetch_schedule error: {url} / {e}")
+        return []
+
 
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
@@ -724,6 +736,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
