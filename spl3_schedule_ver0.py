@@ -510,11 +510,18 @@ def render_versus_mode(base, mode, results):
                 base.paste(bg, (int(ix - 6), int(iy - 32)), bg)
 
         # ==========================
-        # ★ 時間表示
+        # ★ 時間表示（Z 対応）
         # ==========================
-        st = datetime.datetime.fromisoformat(info["start_time"]).strftime("%H:%M")
-        et = datetime.datetime.fromisoformat(info["end_time"]).strftime("%H:%M")
-        time_text = f"{st}~{et}"
+                st = datetime.datetime.fromisoformat(
+                info["start_time"].replace("Z", "+00:00")
+                ).strftime("%H:%M")
+
+                et = datetime.datetime.fromisoformat(
+                info["end_time"].replace("Z", "+00:00")
+                ).strftime("%H:%M")
+
+                time_text = f"{st}~{et}"
+
 
         if slot == "now":
             font_time  = FONT_TIME_NOW
@@ -654,5 +661,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
