@@ -99,6 +99,47 @@ def draw_text_with_bg(draw, box, text, font, bg_fill, text_fill=(0, 0, 0), paddi
 
 
 # ==========================
+# ★ BIG RUN アイコン座標
+# ==========================
+BIG_RUN_COORDS = {
+    "now":   (998.564, 180, 150, 75),
+    "next":  (990, 340, 70, 35),
+    "next2": (990, 420, 70, 35),
+    "next3": (990, 501, 70, 35),
+    "next4": (990, 581, 70, 35),
+}
+
+# ==========================
+# ★ フェス背景オーバーレイ座標
+# ==========================
+FEST_BG_COORDS = {
+    "now":   (20, 10,    920, 310.4),
+    "next":  (20, 320.4, 920, 81),
+    "next2": (20, 400.4, 920, 81),
+    "next3": (20, 480.5, 920, 81),
+    "next4": (20, 560,   920, 81),
+}
+
+
+def draw_big_run(base, slot, is_big_run):
+    """ビッグランの場合に big_run.png を描画"""
+    if not is_big_run:
+        return
+    if slot not in BIG_RUN_COORDS:
+        return
+
+    x, y, w, h = BIG_RUN_COORDS[slot]
+
+    icon_path = os.path.join(ICON_DIR, "big_run.png")
+    if not os.path.exists(icon_path):
+        return
+
+    img = Image.open(icon_path).convert("RGBA")
+    img = img.resize((int(w), int(h)))
+    base.paste(img, (int(x), int(y)), img)
+
+
+# ==========================
 # ★ ルールアイコン座標
 # ==========================
 RULE_ICON_COORDS = {
@@ -389,45 +430,7 @@ COORDS_TABLE = {
     "salmon":    coords_salmon,
 }
 
-# ==========================
-# ★ BIG RUN アイコン座標
-# ==========================
-BIG_RUN_COORDS = {
-    "now":   (998.564, 180, 150, 75),
-    "next":  (990, 340, 70, 35),
-    "next2": (990, 420, 70, 35),
-    "next3": (990, 501, 70, 35),
-    "next4": (990, 581, 70, 35),
-}
 
-# ==========================
-# ★ フェス背景オーバーレイ座標
-# ==========================
-FEST_BG_COORDS = {
-    "now":   (20, 10,    920, 310.4),
-    "next":  (20, 320.4, 920, 81),
-    "next2": (20, 400.4, 920, 81),
-    "next3": (20, 480.5, 920, 81),
-    "next4": (20, 560,   920, 81),
-}
-
-
-def draw_big_run(base, slot, is_big_run):
-    """ビッグランの場合に big_run.png を描画"""
-    if not is_big_run:
-        return
-    if slot not in BIG_RUN_COORDS:
-        return
-
-    x, y, w, h = BIG_RUN_COORDS[slot]
-
-    icon_path = os.path.join(ICON_DIR, "big_run.png")
-    if not os.path.exists(icon_path):
-        return
-
-    img = Image.open(icon_path).convert("RGBA")
-    img = img.resize((int(w), int(h)))
-    base.paste(img, (int(x), int(y)), img)
 
 
 # ==========================
@@ -700,19 +703,19 @@ def main():
 
         # オープン枠 → フェスオープン
         try:
-            render_versus_mode(base, "open", fest_open)
+            render_versus_mode(base, "open", fest_open, is_fest=True)
         except Exception as e:
             print("[FEST OPEN ERR]", e)
 
         # チャレンジ枠 → フェスチャレンジ
         try:
-            render_versus_mode(base, "challenge", fest_challenge)
+            render_versus_mode(base, "challenge", fest_challenge, is_fest=True)
         except Exception as e:
             print("[FEST CHALLENGE ERR]", e)
 
         # Xマッチ枠 → トリカラ
         try:
-            render_versus_mode(base, "xmatch", fest_tricolor)
+            render_versus_mode(base, "xmatch", fest_tricolor, is_fest=True)
         except Exception as e:
             print("[TRICOLOR ERR]", e)
 
@@ -751,6 +754,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
