@@ -513,7 +513,74 @@ FEST_OVERLAY = {
 
 def render_fest_mode(base, results):
     draw = ImageDraw.Draw(base)
-    color = (255, 80, 200)  # フェス用カラー（好みで）
+
+    coords = {
+        "open": coords_open,
+        "regular": coords_regular,
+        "tricolor": coords_xmatch,  # X枠を流用
+    }
+
+    for mode, data in results.items():
+        if mode not in coords:
+            continue
+
+        # ★ モード別フェスカラーを取得
+        color = MODE_COLORS_FEST.get(mode, (255, 80, 200))
+
+        for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
+            if idx >= len(data):
+                continue
+
+            info = data[idx]
+            cslot = coords[mode][slot]
+
+            st = datetime.datetime.fromisoformat(
+                info["start_time"].replace("Z", "+00:00")
+            ).strftime("%H:%M")
+            et = datetime.datetime.fromisoformat(
+                info["end_time"].replace("Z", "+00:00")
+            ).strftime("%H:%M")
+
+            if "start_time" in cslot:
+                draw_text_with_bg(
+                    draw,
+                    cslot["start_time"],
+                    f"{st}~{et}",
+                    FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL,
+                    bg_fill=color,
+                )
+
+            stages = info.get("stages", [])
+            for i in [0, 1]:
+                if i >= len(stages):
+                    continue
+                stg = stages[i]
+
+                if f"stage{i}_image" in cslot:
+                    ix, iy, iw, ih = cslot[f"stage{i}_image"]
+                    img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
+                    base.paste(img, (int(ix), int(iy)))
+
+                if f"stage{i}_name" in cslot:
+                    draw_text_with_bg(
+                        draw,
+                        cslot[f"stage{i}_name"],
+                        stg["name"],
+                        FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL,
+                        bg_fill=color,
+                    )
+
+# ==========================
+# ★ フェス用テーマカラー
+# ==========================
+MODE_COLORS_FEST = {
+    "regular":  (231,  212, 39),  
+    "open":     ( 94,   77, 229),  
+    "tricolor": (247, 75, 79),  
+}
+
+
+    
 
     coords = {
         "open": coords_open,
@@ -717,6 +784,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
