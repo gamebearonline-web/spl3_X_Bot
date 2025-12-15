@@ -23,7 +23,6 @@ def parse_args():
 # ★ パス設定
 # ==========================
 TEMPLATE_PATH = "spl3_Schedule_Template_ver0.png"
-FEST_TEMPLATE_PATH = "spl3_Schedule_Template_fest.png"
 OUTPUT_PATH   = "Thumbnail/Thumbnail.png"
 ICON_DIR      = "icon"
 
@@ -43,41 +42,25 @@ def fetch_image(url):
     return IMAGE_CACHE[url].copy()
 
 # ==========================
-# ★ フェス開催中判定
+# ★ フェス開催中判定（slot単位）
 # ==========================
-def is_fest_now():
+def is_fest_active_slot(start_time, end_time):
     """
-    now / next～next4 のどれかが
-    現在時刻にかかっていれば True
+    slot が現在時刻にかかっていれば True
     """
     try:
-        resp = session.get(
-            "https://spla3.yuu26.com/api/fest/schedule",
-            headers={"User-Agent": "Spla3StageBot/1.0"},
-            timeout=10,
-        )
-        data = resp.json()
-        results = data.get("results", [])
-        if not results:
-            return False
-
         now = datetime.datetime.now(datetime.timezone.utc)
-
-        for fest in results:
-            start = datetime.datetime.fromisoformat(
-                fest["start_time"].replace("Z", "+00:00")
-            )
-            end = datetime.datetime.fromisoformat(
-                fest["end_time"].replace("Z", "+00:00")
-            )
-            if start <= now <= end:
-                return True
-
+        start = datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+        end   = datetime.datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+        return start <= now <= end
+    except Exception:
         return False
 
-    except Exception as e:
-        print("[FEST CHECK ERR]", e)
-        return False
+# ==========================
+# ★ フェス用 slot 背景
+# ==========================
+FEST_SLOT_BG = "fest/fest_slot_bg.png"  # 透明PNG
+
 
 # ==========================
 # ★ テーマカラー
@@ -509,6 +492,26 @@ def render_versus_mode(base, mode, results):
         info = results[idx]
         cslot = coords_mode[slot]
 
+        # =====================================
+        # ★ フェス開催中なら slot 背景を差し替え
+        # =====================================
+        if is_fest_active_slot(info["start_time"], info["end_time"]):
+            if "stage0_image" in cslot and os.path.exists(FEST_SLOT_BG):
+                ix, iy, iw, ih = cslot["stage0_image"]
+
+                # 背景サイズ（ステージ2枚分 + 余白）
+                bg_w = int(iw * 2 + 12)
+                bg_h = int(ih * 2 + 40)
+
+                bg = Image.open(FEST_SLOT_BG).convert("RGBA")
+                bg = bg.resize((bg_w, bg_h))
+
+                # slot の左上に合わせて貼る
+                base.paste(bg, (int(ix - 6), int(iy - 32)), bg)
+
+        # ==========================
+        # ★ 時間表示
+        # ==========================
         st = datetime.datetime.fromisoformat(info["start_time"]).strftime("%H:%M")
         et = datetime.datetime.fromisoformat(info["end_time"]).strftime("%H:%M")
         time_text = f"{st}~{et}"
@@ -521,12 +524,22 @@ def render_versus_mode(base, mode, results):
             font_stage = FONT_STAGE_SMALL
 
         if "start_time" in cslot:
-            draw_text_with_bg(draw, cslot["start_time"], time_text, font_time, bg_fill=color)
+            draw_text_with_bg(
+                draw,
+                cslot["start_time"],
+                time_text,
+                font_time,
+                bg_fill=color
+            )
 
+        # ==========================
+        # ★ ステージ画像 & 名前
+        # ==========================
         stages = info.get("stages", [])
         for i in [0, 1]:
             if i >= len(stages):
                 continue
+
             stg = stages[i]
             img_key  = f"stage{i}_image"
             name_key = f"stage{i}_name"
@@ -541,10 +554,20 @@ def render_versus_mode(base, mode, results):
                     pass
 
             if name_key in cslot:
-                draw_text_with_bg(draw, cslot[name_key], stg["name"], font_stage, bg_fill=color)
+                draw_text_with_bg(
+                    draw,
+                    cslot[name_key],
+                    stg["name"],
+                    font_stage,
+                    bg_fill=color
+                )
 
+        # ==========================
+        # ★ ルールアイコン
+        # ==========================
         rule_key = info.get("rule", {}).get("key")
         draw_rule_icon(base, mode, slot, rule_key)
+
 
 # ==========================
 # ★ サーモンラン（ビッグラン対応）
@@ -612,13 +635,10 @@ def main():
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    # ★ 背景テンプレ分岐（ここだけが変更点）
-    if is_fest_now() and os.path.exists(FEST_TEMPLATE_PATH):
-        print("🎉 フェス開催中：フェス背景を使用")
-        base = Image.open(FEST_TEMPLATE_PATH).convert("RGBA")
-    else:
-        base = Image.open(TEMPLATE_PATH).convert("RGBA")
+    # ★ 背景は常に通常テンプレ
+    base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
+    
     try:
         render_versus_mode(base, "regular", fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
         render_versus_mode(base, "open", fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
@@ -634,4 +654,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
