@@ -460,6 +460,21 @@ def fetch_schedule(url):
     return resp.json()["results"]
 
 # ==========================
+# ★ フェススケジュール取得
+# ==========================
+def fetch_fest_schedule():
+    url = "https://spla3.yuu26.com/api/fest/schedule"
+    try:
+        resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"})
+        resp.raise_for_status()
+        results = resp.json()["results"]
+        return results if results else None
+    except Exception:
+        return None
+
+
+
+# ==========================
 # ★ バトル（regular / open / challenge / xmatch）
 # ==========================
 def render_versus_mode(base, mode, results):
@@ -586,20 +601,58 @@ def main():
     except Exception as e:
         print("[REGULAR ERR]", e)
 
-    try:
-        render_versus_mode(base, "open", fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
-    except Exception as e:
-        print("[OPEN ERR]", e)
+    # --- フェス判定 ---
+    fest_results = fetch_fest_schedule()
 
     try:
-        render_versus_mode(base, "challenge", fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"))
+        render_versus_mode(base, "regular",
+            fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
     except Exception as e:
-        print("[CHALLENGE ERR]", e)
+        print("[REGULAR ERR]", e)
 
-    try:
-        render_versus_mode(base, "xmatch", fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
-    except Exception as e:
-        print("[XMATCH ERR]", e)
+    if fest_results:
+        print("🎉 フェス開催中")
+
+        fest_open, fest_challenge, fest_tricolor = split_fest_results(fest_results)
+
+        # オープン枠 → フェスオープン
+        try:
+            render_versus_mode(base, "open", fest_open)
+        except Exception as e:
+            print("[FEST OPEN ERR]", e)
+
+        # チャレンジ枠 → フェスチャレンジ
+        try:
+            render_versus_mode(base, "challenge", fest_challenge)
+        except Exception as e:
+            print("[FEST CHALLENGE ERR]", e)
+
+        # Xマッチ枠 → トリカラ
+        try:
+            render_versus_mode(base, "xmatch", fest_tricolor)
+        except Exception as e:
+            print("[TRICOLOR ERR]", e)
+
+    else:
+        # --- 通常時 ---
+        try:
+            render_versus_mode(base, "open",
+                fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
+        except Exception as e:
+            print("[OPEN ERR]", e)
+
+        try:
+            render_versus_mode(base, "challenge",
+                fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"))
+        except Exception as e:
+            print("[CHALLENGE ERR]", e)
+
+        try:
+            render_versus_mode(base, "xmatch",
+                fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
+        except Exception as e:
+            print("[XMATCH ERR]", e)
+
 
     try:
         render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
@@ -615,3 +668,4 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
