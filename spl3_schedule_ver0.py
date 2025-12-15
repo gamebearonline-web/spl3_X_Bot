@@ -490,6 +490,32 @@ def is_fest_now():
         print("⚠ is_fest_now 判定失敗:", e)
         return False
 
+def is_fest_active_now():
+    """
+    フェスが「現在開催中」の場合のみ True
+    （背景切替用）
+    """
+    try:
+        data = fetch_schedule("https://spla3.yuu26.com/api/fest/schedule")
+        if not data:
+            return False
+
+        now = datetime.datetime.utcnow()
+
+        for fest in data:
+            st = parse_utc(fest["start_time"])
+            et = parse_utc(fest["end_time"])
+
+            if st <= now <= et:
+                return True
+
+        return False
+
+    except Exception as e:
+        print("⚠ is_fest_active_now 判定失敗:", e)
+        return False
+
+
 
 def draw_fest_overlay(base):
     """
@@ -702,37 +728,69 @@ def render_salmon_mode(base, results):
 # ==========================
 def main():
     args = parse_args()
-    base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-    fest = is_fest_now()
+    # ----------------------------------
+    # フェス判定
+    # ----------------------------------
+    has_fest_info  = is_fest_now()         # 予告 or 開催中
+    fest_is_active = is_fest_active_now()  # 開催中のみ
 
-    if fest:
-        print("🎉 フェスモード")
+    # ----------------------------------
+    # 背景決定（最重要）
+    # ----------------------------------
+    if fest_is_active:
+        print("🎉 フェス開催中：完全フェス背景")
+        base = Image.open(TEMPLATE_FEST_PATH).convert("RGBA")
+    else:
+        print("⚔ 通常背景")
+        base = Image.open(TEMPLATE_PATH).convert("RGBA")
+
+    # ----------------------------------
+    # フェス情報（予告でも表示）
+    # ----------------------------------
+    if has_fest_info:
         draw_fest_overlay(base)
 
         fest_results = {
-            "open":      fetch_schedule("https://spla3.yuu26.com/api/fest/open/schedule"),
-            "regular":   fetch_schedule("https://spla3.yuu26.com/api/fest/regular/schedule"),
-            "tricolor":  fetch_schedule("https://spla3.yuu26.com/api/fest/tricolor/schedule"),
+            "open":     fetch_schedule("https://spla3.yuu26.com/api/fest/open/schedule"),
+            "regular":  fetch_schedule("https://spla3.yuu26.com/api/fest/regular/schedule"),
+            "tricolor": fetch_schedule("https://spla3.yuu26.com/api/fest/tricolor/schedule"),
         }
+
         render_fest_mode(base, fest_results)
 
-    else:
-        print("⚔ 通常モード")
-        render_versus_mode(base, "regular",   fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
-        render_versus_mode(base, "open",      fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
-        render_versus_mode(base, "challenge", fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"))
-        render_versus_mode(base, "xmatch",    fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
+    # ----------------------------------
+    # 通常バトル（フェス開催中は完全非表示）
+    # ----------------------------------
+    if not fest_is_active:
+        render_versus_mode(
+            base, "regular",
+            fetch_schedule("https://spla3.yuu26.com/api/regular/schedule")
+        )
+        render_versus_mode(
+            base, "open",
+            fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule")
+        )
+        render_versus_mode(
+            base, "challenge",
+            fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule")
+        )
+        render_versus_mode(
+            base, "xmatch",
+            fetch_schedule("https://spla3.yuu26.com/api/x/schedule")
+        )
 
-    render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
+    # ----------------------------------
+    # サーモンラン（常時表示）
+    # ----------------------------------
+    render_salmon_mode(
+        base,
+        fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule")
+    )
 
+    # ----------------------------------
+    # 出力
+    # ----------------------------------
     base.save(args.output)
-    print("出力完了:", args.output)
+    print("✅ 出力完了:", args.output)
 
-
-
-# ==========================
-# ★ 実行
-# ==========================
-if __name__ == "__main__":
-    main()
