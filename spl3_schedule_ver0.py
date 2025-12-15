@@ -74,6 +74,16 @@ MODE_COLORS = {
 }
 
 # ==========================
+# ★ フェス用 文字背景色
+# ==========================
+FEST_TEXT_BG = {
+    "open":      (232, 213, 38),   # #e8d526
+    "challenge": (232, 213, 38),   # #e8d526
+    "xmatch":    (102, 77, 222),   # #664dde
+}
+
+
+# ==========================
 # ★ フォント
 # ==========================
 def load_font(size):
@@ -477,13 +487,14 @@ def fetch_schedule(url):
     resp.raise_for_status()
     return resp.json()["results"]
 
+
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
 # ==========================
 def render_versus_mode(base, mode, results):
     coords_mode = COORDS_TABLE[mode]
     draw = ImageDraw.Draw(base)
-    color = MODE_COLORS[mode]
+    default_color = MODE_COLORS[mode]
 
     for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
         if slot not in coords_mode or idx >= len(results):
@@ -493,7 +504,18 @@ def render_versus_mode(base, mode, results):
         cslot = coords_mode[slot]
 
         # ==========================
-        # ★ 時間（Z 対応・常に計算）
+        # ★ フェス開催中 slot 判定
+        # ==========================
+        is_fest_slot = is_fest_active_slot(info)
+
+        # 文字背景色（デフォルト or フェス用）
+        if is_fest_slot and mode in FEST_TEXT_BG:
+            text_bg_color = FEST_TEXT_BG[mode]
+        else:
+            text_bg_color = default_color
+
+        # ==========================
+        # ★ 時間表示
         # ==========================
         st = datetime.datetime.fromisoformat(
             info["start_time"].replace("Z", "+00:00")
@@ -505,24 +527,6 @@ def render_versus_mode(base, mode, results):
 
         time_text = f"{st}~{et}"
 
-        # =====================================
-        # ★ フェス開催中なら slot 背景を差し替え
-        # =====================================
-        if is_fest_active_slot(info["start_time"], info["end_time"]):
-            if "stage0_image" in cslot and os.path.exists(FEST_SLOT_BG):
-                ix, iy, iw, ih = cslot["stage0_image"]
-
-                bg_w = int(iw * 2 + 12)
-                bg_h = int(ih * 2 + 40)
-
-                bg = Image.open(FEST_SLOT_BG).convert("RGBA")
-                bg = bg.resize((bg_w, bg_h))
-
-                base.paste(bg, (int(ix - 6), int(iy - 32)), bg)
-
-        # ==========================
-        # ★ フォント切替
-        # ==========================
         if slot == "now":
             font_time  = FONT_TIME_NOW
             font_stage = FONT_STAGE_NOW
@@ -536,7 +540,7 @@ def render_versus_mode(base, mode, results):
                 cslot["start_time"],
                 time_text,
                 font_time,
-                bg_fill=color
+                bg_fill=text_bg_color,
             )
 
         # ==========================
@@ -566,7 +570,7 @@ def render_versus_mode(base, mode, results):
                     cslot[name_key],
                     stg["name"],
                     font_stage,
-                    bg_fill=color
+                    bg_fill=text_bg_color,
                 )
 
         # ==========================
@@ -662,6 +666,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
