@@ -794,3 +794,11 @@ def main():
     base.save(args.output)
     print("✅ 出力完了:", args.output)
 
+# ==========================
+# エントリーポイント
+# ==========================
+if __name__ == "__main__":
+    main()
+
+
+
