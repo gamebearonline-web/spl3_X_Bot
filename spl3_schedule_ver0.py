@@ -23,10 +23,10 @@ def parse_args():
 # ★ パス設定
 # ==========================
 TEMPLATE_PATH = "spl3_Schedule_Template_ver0.png"
+FEST_TEMPLATE_PATH = "spl3_Schedule_Template_fest.png"
 OUTPUT_PATH   = "Thumbnail/Thumbnail.png"
 ICON_DIR      = "icon"
 
-# Thumbnail フォルダが無い場合は作成
 os.makedirs("Thumbnail", exist_ok=True)
 
 # ==========================
@@ -36,13 +36,48 @@ session = requests.Session()
 IMAGE_CACHE = {}
 
 def fetch_image(url):
-    """URL画像をキャッシュして高速化"""
     if url not in IMAGE_CACHE:
         resp = session.get(url, headers={"User-Agent": "Spla3Img/1.0"})
         resp.raise_for_status()
         IMAGE_CACHE[url] = Image.open(BytesIO(resp.content)).convert("RGBA")
     return IMAGE_CACHE[url].copy()
 
+# ==========================
+# ★ フェス開催中判定
+# ==========================
+def is_fest_now():
+    """
+    now / next～next4 のどれかが
+    現在時刻にかかっていれば True
+    """
+    try:
+        resp = session.get(
+            "https://spla3.yuu26.com/api/fest/schedule",
+            headers={"User-Agent": "Spla3StageBot/1.0"},
+            timeout=10,
+        )
+        data = resp.json()
+        results = data.get("results", [])
+        if not results:
+            return False
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        for fest in results:
+            start = datetime.datetime.fromisoformat(
+                fest["start_time"].replace("Z", "+00:00")
+            )
+            end = datetime.datetime.fromisoformat(
+                fest["end_time"].replace("Z", "+00:00")
+            )
+            if start <= now <= end:
+                return True
+
+        return False
+
+    except Exception as e:
+        print("[FEST CHECK ERR]", e)
+        return False
 
 # ==========================
 # ★ テーマカラー
@@ -56,7 +91,7 @@ MODE_COLORS = {
 }
 
 # ==========================
-# ★ フォント(源暎ぽっぷる)
+# ★ フォント
 # ==========================
 def load_font(size):
     return ImageFont.truetype(r"GenEiPOPle_v1.0/GenEiPOPle-Bk.ttf", size)
@@ -570,48 +605,33 @@ def render_salmon_mode(base, results):
 def main():
     global OUTPUT_PATH
 
-    # --- 引数処理 ---
     args = parse_args()
-    OUTPUT_PATH = args.output  # 上書き
+    OUTPUT_PATH = args.output
 
-    # 保存先のフォルダを作成
     out_dir = os.path.dirname(OUTPUT_PATH)
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    base = Image.open(TEMPLATE_PATH).convert("RGBA")
+    # ★ 背景テンプレ分岐（ここだけが変更点）
+    if is_fest_now() and os.path.exists(FEST_TEMPLATE_PATH):
+        print("🎉 フェス開催中：フェス背景を使用")
+        base = Image.open(FEST_TEMPLATE_PATH).convert("RGBA")
+    else:
+        base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
     try:
         render_versus_mode(base, "regular", fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
-    except Exception as e:
-        print("[REGULAR ERR]", e)
-
-    try:
         render_versus_mode(base, "open", fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
-    except Exception as e:
-        print("[OPEN ERR]", e)
-
-    try:
         render_versus_mode(base, "challenge", fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"))
-    except Exception as e:
-        print("[CHALLENGE ERR]", e)
-
-    try:
         render_versus_mode(base, "xmatch", fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
-    except Exception as e:
-        print("[XMATCH ERR]", e)
-
-    try:
         render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
     except Exception as e:
-        print("[SALMON ERR]", e)
+        print("[ERR]", e)
 
     base.save(OUTPUT_PATH)
     print("出力完了:", OUTPUT_PATH)
 
 
-# ==========================
-# ★ 実行
-# ==========================
 if __name__ == "__main__":
     main()
+
