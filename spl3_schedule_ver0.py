@@ -454,7 +454,6 @@ def draw_salmon_weapons(base, slot, weapons):
 # ★ フェス用
 # ==========================
 import datetime
-import os
 from PIL import Image
 
 def is_fest_now():
@@ -718,6 +717,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
