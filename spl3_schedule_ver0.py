@@ -491,51 +491,47 @@ def fetch_schedule(url):
 def render_versus_mode(base, mode, results):
     coords_mode = COORDS_TABLE[mode]
     draw = ImageDraw.Draw(base)
-    default_color = MODE_COLORS[mode]
 
     for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
         if slot not in coords_mode or idx >= len(results):
             continue
 
-        info = results[idx]
+        info  = results[idx]
         cslot = coords_mode[slot]
 
-        # ==========================
-        # ★ フェス開催中 slot 判定
-        # ==========================
+        # ----------------------------
+        # 時刻判定（この slot が今か？）
+        # ----------------------------
+        start = datetime.datetime.fromisoformat(info["start_time"].replace("Z", "+00:00"))
+        end   = datetime.datetime.fromisoformat(info["end_time"].replace("Z", "+00:00"))
+        now   = datetime.datetime.now(datetime.timezone.utc)
+
+        is_now_slot = start <= now < end
+
+        # ----------------------------
+        # フェス slot 判定（超重要）
+        # ----------------------------
         is_fest_slot = (
-         is_fest_now() and
-         is_fest_active_slot(
-            info["start_time"],
-            info["end_time"],
-          )
+            is_now_slot and
+            info.get("is_fest", False)   # ← フェス schedule のみ True
         )
 
-
-
-        # 文字背景色（デフォルト or フェス用）
+        # ----------------------------
+        # 背景色決定
+        # ----------------------------
         if is_fest_slot:
-           if mode in ("open", "challenge"):
-              bg_color = "#e8d526"
-           elif mode == "xmatch":
-              bg_color = "#664dde"
+            if mode in ("open", "challenge"):
+                bg_color = "#e8d526"
+            elif mode == "xmatch":
+                bg_color = "#664dde"
+            else:
+                bg_color = MODE_COLORS[mode]
         else:
-           bg_color = MODE_COLORS[mode]
+            bg_color = MODE_COLORS[mode]
 
-
-        # ==========================
-        # ★ 時間表示
-        # ==========================
-        st = datetime.datetime.fromisoformat(
-            info["start_time"].replace("Z", "+00:00")
-        ).strftime("%H:%M")
-
-        et = datetime.datetime.fromisoformat(
-            info["end_time"].replace("Z", "+00:00")
-        ).strftime("%H:%M")
-
-        time_text = f"{st}~{et}"
-
+        # ----------------------------
+        # 表示用フォント
+        # ----------------------------
         if slot == "now":
             font_time  = FONT_TIME_NOW
             font_stage = FONT_STAGE_NOW
@@ -543,50 +539,52 @@ def render_versus_mode(base, mode, results):
             font_time  = FONT_TIME_SMALL
             font_stage = FONT_STAGE_SMALL
 
+        # ----------------------------
+        # 時刻表示
+        # ----------------------------
         if "start_time" in cslot:
+            time_text = f"{start.strftime('%H:%M')}~{end.strftime('%H:%M')}"
             draw_text_with_bg(
                 draw,
                 cslot["start_time"],
                 time_text,
                 font_time,
-                bg_fill=text_bg_color,
+                bg_fill=bg_color,
             )
 
-        # ==========================
-        # ★ ステージ
-        # ==========================
+        # ----------------------------
+        # ステージ描画
+        # ----------------------------
         stages = info.get("stages", [])
-        for i in [0, 1]:
+        for i in (0, 1):
             if i >= len(stages):
                 continue
 
             stg = stages[i]
-            img_key  = f"stage{i}_image"
-            name_key = f"stage{i}_name"
 
-            if img_key in cslot:
-                ix, iy, iw, ih = cslot[img_key]
+            if f"stage{i}_image" in cslot:
+                ix, iy, iw, ih = cslot[f"stage{i}_image"]
                 try:
-                    img = fetch_image(stg["image"])
-                    img = img.resize((int(iw), int(ih)))
+                    img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
                     base.paste(img, (int(ix), int(iy)))
                 except Exception:
                     pass
 
-            if name_key in cslot:
+            if f"stage{i}_name" in cslot:
                 draw_text_with_bg(
                     draw,
-                    cslot[name_key],
+                    cslot[f"stage{i}_name"],
                     stg["name"],
                     font_stage,
-                    bg_fill=text_bg_color,
+                    bg_fill=bg_color,
                 )
 
-        # ==========================
-        # ★ ルールアイコン
-        # ==========================
+        # ----------------------------
+        # ルールアイコン
+        # ----------------------------
         rule_key = info.get("rule", {}).get("key")
         draw_rule_icon(base, mode, slot, rule_key)
+
 
 
 
@@ -675,6 +673,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
