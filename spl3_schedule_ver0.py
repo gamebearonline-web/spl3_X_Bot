@@ -462,6 +462,7 @@ def draw_salmon_weapons(base, slot, weapons):
         except Exception:
             pass
 
+
 # ==========================
 # ★ フェス用
 # ==========================
@@ -472,34 +473,18 @@ MODE_COLORS_FEST = {
     "tricolor": (247, 75, 79),
 }
 
-
-
 def is_fest_now():
     """
-    フェスが「現在開催中」のときのみ True を返す
-    ※ フェス予告期間は False
+    フェスが
+    ・開催中
+    ・または予告が存在する
+    場合に True を返す
+
+    ※ 時刻判定は行わない（重要仕様）
     """
     try:
         data = fetch_schedule("https://spla3.yuu26.com/api/fest/schedule")
-        if not data:
-            return False
-
-        # API の time は ISO8601（UTC, Z付き）
-        now_utc = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
-
-        for fest in data:
-            start = datetime.datetime.fromisoformat(
-                fest["start_time"].replace("Z", "+00:00")
-            )
-            end = datetime.datetime.fromisoformat(
-                fest["end_time"].replace("Z", "+00:00")
-            )
-
-            if start <= now_utc < end:
-                return True
-
-        return False
-
+        return bool(data)   # ← 予定が1件でもあれば True
     except Exception as e:
         print("⚠ is_fest_now 判定失敗:", e)
         return False
@@ -540,7 +525,6 @@ def render_fest_mode(base, results):
         if mode not in coords:
             continue
 
-        # ★ モード別フェスカラーを取得
         color = MODE_COLORS_FEST.get(mode, (255, 80, 200))
 
         for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
@@ -740,6 +724,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
