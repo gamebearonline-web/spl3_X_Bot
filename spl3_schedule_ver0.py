@@ -559,7 +559,7 @@ def split_fest_results(fest_results):
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
 # ==========================
-def render_versus_mode(base, mode, results):
+def render_versus_mode(base, mode, results, is_fest=False):
     coords_mode = COORDS_TABLE[mode]
     draw = ImageDraw.Draw(base)
     color = MODE_COLORS[mode]
@@ -570,8 +570,8 @@ def render_versus_mode(base, mode, results):
 
         info = results[idx]
 
-        # ★ フェス背景（フェス時のみ）
-        if info.get("rule", {}).get("key") in ("turf_war", "tricolor"):
+        # ★ フェス背景（フェススケジュールから来た時のみ）
+        if is_fest:
             draw_fest_background(base, slot)
 
         cslot = coords_mode[slot]
@@ -580,39 +580,34 @@ def render_versus_mode(base, mode, results):
         et = datetime.datetime.fromisoformat(info["end_time"]).strftime("%H:%M")
         time_text = f"{st}~{et}"
 
-        if slot == "now":
-            font_time  = FONT_TIME_NOW
-            font_stage = FONT_STAGE_NOW
-        else:
-            font_time  = FONT_TIME_SMALL
-            font_stage = FONT_STAGE_SMALL
+        font_time  = FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL
+        font_stage = FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL
 
         if "start_time" in cslot:
             draw_text_with_bg(draw, cslot["start_time"], time_text, font_time, bg_fill=color)
 
-        stages = info.get("stages", [])
         for i in (0, 1):
-            if i >= len(stages):
+            if i >= len(info.get("stages", [])):
                 continue
 
-            stg = stages[i]
-            img_key  = f"stage{i}_image"
-            name_key = f"stage{i}_name"
+            stg = info["stages"][i]
 
-            if img_key in cslot:
-                ix, iy, iw, ih = cslot[img_key]
-                try:
-                    img = fetch_image(stg["image"])
-                    img = img.resize((int(iw), int(ih)))
-                    base.paste(img, (int(ix), int(iy)))
-                except Exception:
-                    pass
+            if f"stage{i}_image" in cslot:
+                ix, iy, iw, ih = cslot[f"stage{i}_image"]
+                img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
+                base.paste(img, (int(ix), int(iy)))
 
-            if name_key in cslot:
-                draw_text_with_bg(draw, cslot[name_key], stg["name"], font_stage, bg_fill=color)
+            if f"stage{i}_name" in cslot:
+                draw_text_with_bg(
+                    draw,
+                    cslot[f"stage{i}_name"],
+                    stg["name"],
+                    font_stage,
+                    bg_fill=color,
+                )
 
-        rule_key = info.get("rule", {}).get("key")
-        draw_rule_icon(base, mode, slot, rule_key)
+        draw_rule_icon(base, mode, slot, info.get("rule", {}).get("key"))
+
 
 
 
@@ -754,6 +749,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
