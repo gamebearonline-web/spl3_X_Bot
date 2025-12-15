@@ -464,7 +464,7 @@ def draw_salmon_weapons(base, slot, weapons):
 
 
 # ==========================
-# ★ フェス用
+# ★ フェス用（全文・修正版）
 # ==========================
 
 MODE_COLORS_FEST = {
@@ -472,6 +472,7 @@ MODE_COLORS_FEST = {
     "open":     (94,  77, 229),
     "tricolor": (247, 75, 79),
 }
+
 
 def is_fest_now():
     """
@@ -484,7 +485,7 @@ def is_fest_now():
     """
     try:
         data = fetch_schedule("https://spla3.yuu26.com/api/fest/schedule")
-        return bool(data)   # ← 予定が1件でもあれば True
+        return bool(data)   # 予定が1件でもあれば True
     except Exception as e:
         print("⚠ is_fest_now 判定失敗:", e)
         return False
@@ -516,8 +517,8 @@ def render_fest_mode(base, results):
     draw = ImageDraw.Draw(base)
 
     coords = {
-        "open": coords_open,
-        "regular": coords_regular,
+        "open":     coords_open,
+        "regular":  coords_regular,
         "tricolor": coords_xmatch,  # X枠を流用
     }
 
@@ -534,12 +535,9 @@ def render_fest_mode(base, results):
             info = data[idx]
             cslot = coords[mode][slot]
 
-            st = datetime.datetime.fromisoformat(
-                info["start_time"].replace("Z", "+00:00")
-            ).strftime("%H:%M")
-            et = datetime.datetime.fromisoformat(
-                info["end_time"].replace("Z", "+00:00")
-            ).strftime("%H:%M")
+            # --- UTC処理を共通関数に統一 ---
+            st = parse_utc(info["start_time"]).strftime("%H:%M")
+            et = parse_utc(info["end_time"]).strftime("%H:%M")
 
             if "start_time" in cslot:
                 draw_text_with_bg(
@@ -551,9 +549,10 @@ def render_fest_mode(base, results):
                 )
 
             stages = info.get("stages", [])
-            for i in [0, 1]:
+            for i in (0, 1):
                 if i >= len(stages):
                     continue
+
                 stg = stages[i]
 
                 if f"stage{i}_image" in cslot:
@@ -569,6 +568,7 @@ def render_fest_mode(base, results):
                         FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL,
                         bg_fill=color,
                     )
+
 
 
 
@@ -724,6 +724,7 @@ def main():
 # ==========================
 if __name__ == "__main__":
     main()
+
 
 
 
