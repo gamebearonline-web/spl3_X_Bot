@@ -492,6 +492,19 @@ def render_versus_mode(base, mode, results):
         info = results[idx]
         cslot = coords_mode[slot]
 
+        # ==========================
+        # ★ 時間（Z 対応・常に計算）
+        # ==========================
+        st = datetime.datetime.fromisoformat(
+            info["start_time"].replace("Z", "+00:00")
+        ).strftime("%H:%M")
+
+        et = datetime.datetime.fromisoformat(
+            info["end_time"].replace("Z", "+00:00")
+        ).strftime("%H:%M")
+
+        time_text = f"{st}~{et}"
+
         # =====================================
         # ★ フェス開催中なら slot 背景を差し替え
         # =====================================
@@ -499,30 +512,17 @@ def render_versus_mode(base, mode, results):
             if "stage0_image" in cslot and os.path.exists(FEST_SLOT_BG):
                 ix, iy, iw, ih = cslot["stage0_image"]
 
-                # 背景サイズ（ステージ2枚分 + 余白）
                 bg_w = int(iw * 2 + 12)
                 bg_h = int(ih * 2 + 40)
 
                 bg = Image.open(FEST_SLOT_BG).convert("RGBA")
                 bg = bg.resize((bg_w, bg_h))
 
-                # slot の左上に合わせて貼る
                 base.paste(bg, (int(ix - 6), int(iy - 32)), bg)
 
         # ==========================
-        # ★ 時間表示（Z 対応）
+        # ★ フォント切替
         # ==========================
-                st = datetime.datetime.fromisoformat(
-                info["start_time"].replace("Z", "+00:00")
-                ).strftime("%H:%M")
-
-                et = datetime.datetime.fromisoformat(
-                info["end_time"].replace("Z", "+00:00")
-                ).strftime("%H:%M")
-
-                time_text = f"{st}~{et}"
-
-
         if slot == "now":
             font_time  = FONT_TIME_NOW
             font_stage = FONT_STAGE_NOW
@@ -540,7 +540,7 @@ def render_versus_mode(base, mode, results):
             )
 
         # ==========================
-        # ★ ステージ画像 & 名前
+        # ★ ステージ
         # ==========================
         stages = info.get("stages", [])
         for i in [0, 1]:
@@ -574,6 +574,7 @@ def render_versus_mode(base, mode, results):
         # ==========================
         rule_key = info.get("rule", {}).get("key")
         draw_rule_icon(base, mode, slot, rule_key)
+
 
 
 # ==========================
@@ -661,6 +662,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
