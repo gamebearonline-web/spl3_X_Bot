@@ -22,8 +22,7 @@ def parse_args():
 # ==========================
 # ★ パス設定
 # ==========================
-TEMPLATE_PATH      = "spl3_Schedule_Template_ver0.png"
-TEMPLATE_FEST_PATH = "spl3_Schedule_Template_fest.png"
+TEMPLATE_PATH = "spl3_Schedule_Template_ver0.png"
 OUTPUT_PATH   = "Thumbnail/Thumbnail.png"
 ICON_DIR      = "icon"
 
@@ -71,10 +70,9 @@ FONT_STAGE_SMALL = load_font(10)
 # ★ サーモン用 日付＋曜日
 # ==========================
 def format_salmon_datetime(iso_str: str) -> str:
-    dt = parse_utc(iso_str)
+    dt = datetime.datetime.fromisoformat(iso_str)
     weekday = "月火水木金土日"[dt.weekday()]
     return dt.strftime(f"%m/%d({weekday}) %H:%M")
-
 
 # ==========================
 # ★ テキスト描画ユーティリティ
@@ -141,17 +139,6 @@ def draw_rule_icon(base, mode, slot, rule_key):
     icon = Image.open(icon_path).convert("RGBA")
     icon = icon.resize((int(w), int(h)))
     base.paste(icon, (int(x), int(y)), icon)
-
-
-def parse_utc(iso_str: str) -> datetime.datetime:
-    """
-    ISO8601(Z付き) を timezone-aware な datetime に変換
-    """
-    return datetime.datetime.fromisoformat(
-        iso_str.replace("Z", "+00:00")
-    )
-
-
 
 # ==========================
 # ★ ステージ座標（regular / open / challenge / xmatch / salmon）
@@ -465,159 +452,12 @@ def draw_salmon_weapons(base, slot, weapons):
 
 
 # ==========================
-# ★ フェス用（全文・修正版）
-# ==========================
-
-MODE_COLORS_FEST = {
-    "regular":  (231, 212, 39),
-    "open":     (94,  77, 229),
-    "tricolor": (247, 75, 79),
-}
-
-
-def is_fest_now():
-    """
-    フェスが
-    ・開催中
-    ・または予告が存在する
-    場合に True を返す
-
-    ※ 時刻判定は行わない（重要仕様）
-    """
-    try:
-        data = fetch_schedule("https://spla3.yuu26.com/api/fest/schedule")
-        return bool(data)   # 予定が1件でもあれば True
-    except Exception as e:
-        print("⚠ is_fest_now 判定失敗:", e)
-        return False
-
-def is_fest_active_now():
-    """
-    フェスが「現在開催中」の場合のみ True
-    （背景切替用）
-    """
-    try:
-        data = fetch_schedule("https://spla3.yuu26.com/api/fest/schedule")
-        if not data:
-            return False
-
-        now = datetime.datetime.utcnow()
-
-        for fest in data:
-            st = parse_utc(fest["start_time"])
-            et = parse_utc(fest["end_time"])
-
-            if st <= now <= et:
-                return True
-
-        return False
-
-    except Exception as e:
-        print("⚠ is_fest_active_now 判定失敗:", e)
-        return False
-
-
-
-def draw_fest_overlay(base):
-    """
-    フェス用の枠画像をテンプレの上に重ねる
-    """
-    for slot, (path, (x, y, w, h)) in FEST_OVERLAY.items():
-        if not os.path.exists(path):
-            continue
-
-        img = Image.open(path).convert("RGBA")
-        img = img.resize((int(w), int(h)))
-        base.paste(img, (int(x), int(y)), img)
-
-
-FEST_OVERLAY = {
-    "now":   ("fest/now_fest.png",  (20, 10, 920, 310)),
-    "next":  ("fest/next_fest.png", (20, 320, 920, 81)),
-    "next2": ("fest/next_fest.png", (20, 400, 920, 81)),
-    "next3": ("fest/next_fest.png", (20, 480, 920, 81)),
-    "next4": ("fest/next_fest.png", (20, 560, 920, 81)),
-}
-
-
-def render_fest_mode(base, results):
-    draw = ImageDraw.Draw(base)
-
-    coords = {
-        "open":     coords_open,
-        "regular":  coords_regular,
-        "tricolor": coords_xmatch,  # X枠を流用
-    }
-
-    for mode, data in results.items():
-        if mode not in coords:
-            continue
-
-        color = MODE_COLORS_FEST.get(mode, (255, 80, 200))
-
-        for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
-            if idx >= len(data):
-                continue
-
-            info = data[idx]
-            cslot = coords[mode][slot]
-
-            # --- UTC処理を共通関数に統一 ---
-            st = parse_utc(info["start_time"]).strftime("%H:%M")
-            et = parse_utc(info["end_time"]).strftime("%H:%M")
-
-            if "start_time" in cslot:
-                draw_text_with_bg(
-                    draw,
-                    cslot["start_time"],
-                    f"{st}~{et}",
-                    FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL,
-                    bg_fill=color,
-                )
-
-            stages = info.get("stages", [])
-            for i in (0, 1):
-                if i >= len(stages):
-                    continue
-
-                stg = stages[i]
-
-                if f"stage{i}_image" in cslot:
-                    ix, iy, iw, ih = cslot[f"stage{i}_image"]
-                    img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
-                    base.paste(img, (int(ix), int(iy)))
-
-                if f"stage{i}_name" in cslot:
-                    draw_text_with_bg(
-                        draw,
-                        cslot[f"stage{i}_name"],
-                        stg["name"],
-                        FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL,
-                        bg_fill=color,
-                    )
-
-
-
-
-# ==========================
 # ★ API 共通（Session使用）
 # ==========================
 def fetch_schedule(url):
-    try:
-        resp = requests.get(url, timeout=10)
-
-        # フェスAPIは 403 / 404 があり得る
-        if resp.status_code != 200:
-            print(f"⚠ fetch_schedule skipped ({resp.status_code}): {url}")
-            return []
-
-        data = resp.json()
-        return data.get("results", [])
-
-    except Exception as e:
-        print(f"⚠ fetch_schedule error: {url} / {e}")
-        return []
-
+    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"})
+    resp.raise_for_status()
+    return resp.json()["results"]
 
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
@@ -634,8 +474,8 @@ def render_versus_mode(base, mode, results):
         info = results[idx]
         cslot = coords_mode[slot]
 
-        st = parse_utc(info["start_time"]).strftime("%H:%M")
-        et = parse_utc(info["end_time"]).strftime("%H:%M")
+        st = datetime.datetime.fromisoformat(info["start_time"]).strftime("%H:%M")
+        et = datetime.datetime.fromisoformat(info["end_time"]).strftime("%H:%M")
         time_text = f"{st}~{et}"
 
         if slot == "now":
@@ -728,79 +568,50 @@ def render_salmon_mode(base, results):
 # ★ メイン
 # ==========================
 def main():
+    global OUTPUT_PATH
+
+    # --- 引数処理 ---
     args = parse_args()
+    OUTPUT_PATH = args.output  # 上書き
 
-    # ----------------------------------
-    # フェス判定
-    # ----------------------------------
-    has_fest_info  = is_fest_now()         # 予告 or 開催中
-    fest_is_active = is_fest_active_now()  # 開催中のみ
+    # 保存先のフォルダを作成
+    out_dir = os.path.dirname(OUTPUT_PATH)
+    if out_dir and not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
 
-    # ----------------------------------
-    # 背景決定（最重要）
-    # ----------------------------------
-    if fest_is_active:
-        print("🎉 フェス開催中：完全フェス背景")
-        base = Image.open(TEMPLATE_FEST_PATH).convert("RGBA")
-    else:
-        print("⚔ 通常背景")
-        base = Image.open(TEMPLATE_PATH).convert("RGBA")
+    base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-    # ----------------------------------
-    # フェス情報（予告でも表示）
-    # ----------------------------------
-    if has_fest_info:
-        draw_fest_overlay(base)
+    try:
+        render_versus_mode(base, "regular", fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"))
+    except Exception as e:
+        print("[REGULAR ERR]", e)
 
-        fest_results = {
-            "open":     fetch_schedule("https://spla3.yuu26.com/api/fest/open/schedule"),
-            "regular":  fetch_schedule("https://spla3.yuu26.com/api/fest/regular/schedule"),
-            "tricolor": fetch_schedule("https://spla3.yuu26.com/api/fest/tricolor/schedule"),
-        }
+    try:
+        render_versus_mode(base, "open", fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"))
+    except Exception as e:
+        print("[OPEN ERR]", e)
 
-        render_fest_mode(base, fest_results)
+    try:
+        render_versus_mode(base, "challenge", fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"))
+    except Exception as e:
+        print("[CHALLENGE ERR]", e)
 
-    # ----------------------------------
-    # 通常バトル（フェス開催中は完全非表示）
-    # ----------------------------------
-    if not fest_is_active:
-        render_versus_mode(
-            base, "regular",
-            fetch_schedule("https://spla3.yuu26.com/api/regular/schedule")
-        )
-        render_versus_mode(
-            base, "open",
-            fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule")
-        )
-        render_versus_mode(
-            base, "challenge",
-            fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule")
-        )
-        render_versus_mode(
-            base, "xmatch",
-            fetch_schedule("https://spla3.yuu26.com/api/x/schedule")
-        )
+    try:
+        render_versus_mode(base, "xmatch", fetch_schedule("https://spla3.yuu26.com/api/x/schedule"))
+    except Exception as e:
+        print("[XMATCH ERR]", e)
 
-    # ----------------------------------
-    # サーモンラン（常時表示）
-    # ----------------------------------
-    render_salmon_mode(
-        base,
-        fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule")
-    )
+    try:
+        render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
+    except Exception as e:
+        print("[SALMON ERR]", e)
 
-    # ----------------------------------
-    # 出力
-    # ----------------------------------
-    base.save(args.output)
-    print("✅ 出力完了:", args.output)
+    base.save(OUTPUT_PATH)
+    print("出力完了:", OUTPUT_PATH)
+
 
 # ==========================
-# エントリーポイント
+# ★ 実行
 # ==========================
 if __name__ == "__main__":
     main()
-
-
-
-
