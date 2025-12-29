@@ -21,17 +21,26 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - name: Generate image + schedule json
-        run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+      # ======================
+      # ★ 投稿専用画像生成（保存はしない）
+      # ======================
+      - name: Generate image for POST
+        run: |
+          python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+        # ※ スクリプト側で --output を受け取れるようにしておく
 
-      - name: Upload image+json artifact (POST)
+      # ======================
+      # ★ artifact に画像をアップロード
+      # ======================
+      - name: Upload image artifact (POST)
         uses: actions/upload-artifact@v4
         with:
           name: post-image
-          path: |
-            /tmp/Thumbnail.png
-            /tmp/schedule.json
+          path: /tmp/Thumbnail.png
 
+      # ======================
+      # ★ artifact をダウンロードして投稿
+      # ======================
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -40,10 +49,9 @@ jobs:
 
       - name: Post to X
         env:
-          TWITTER_API_KEY:      ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET:   ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_API_KEY:     ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET:  ${{ secrets.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET:${{ secrets.TWITTER_ACCESS_SECRET }}
-          IMAGE_PATH: post-image/Thumbnail.png
-          SCHEDULE_JSON: post-image/schedule.json
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          IMAGE_PATH: post-image/Thumbnail.png   # ← ここを修正
         run: python post_x.py
