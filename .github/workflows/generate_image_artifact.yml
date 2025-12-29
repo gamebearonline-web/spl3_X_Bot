@@ -23,19 +23,21 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
+      # spl3_schedule_ver0.py はログ上 /tmp/Thumbnail.png と /tmp/schedule.json を生成している
       - name: Run image generator
-        env:
-          SCHEDULE_JSON: Thumbnail/schedule.json
-        run: python spl3_schedule_ver0.py
+        run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
 
-      - name: Debug list Thumbnail
-        run: ls -la Thumbnail
+      - name: Debug list /tmp outputs
+        run: |
+          ls -la /tmp
+          ls -la /tmp/Thumbnail.png || true
+          ls -la /tmp/schedule.json || true
 
-      - name: Upload Thumbnail artifact
+      - name: Upload artifacts (PNG + JSON)
         uses: actions/upload-artifact@v4
         with:
-          name: schedule-image
+          name: post-image
           path: |
-            Thumbnail/Thumbnail.png
-            Thumbnail/schedule.json
+            /tmp/Thumbnail.png
+            /tmp/schedule.json
           if-no-files-found: error
