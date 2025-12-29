@@ -1,0 +1,41 @@
+name: Post to X (Text Only Test)
+
+on:
+  workflow_dispatch:
+    inputs:
+      post_text:
+        description: "Optional: override post text (empty = use schedule.json text)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  post-x-text-only:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 既存の生成スクリプトを流用（schedule.json を作る）
+      # ※画像は作っても使いません（テストなのでOK）
+      - name: Build schedule json (and ignore image)
+        run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+
+      - name: Post to X (TEXT ONLY)
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          SCHEDULE_JSON: /tmp/schedule.json
+          POST_TEXT_OVERRIDE: ${{ github.event.inputs.post_text }}
+        run: python post_x_text_only.py
