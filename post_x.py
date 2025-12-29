@@ -24,7 +24,7 @@ def build_tweet_text(now_jst: datetime):
     なければ固定文にフォールバック
     """
     # workflow で download-artifact した後は `post-image/` 配下になる想定
-    schedule_json_path = os.getenv("SCHEDULE_JSON", "post-image/schedule.json")
+    schedule_json_path = os.getenv("SCHEDULE_JSON", "schedule-image/Thumbnail/schedule.json")
     s = load_schedule_json(schedule_json_path)
 
     # 時刻文字列（あなたの希望フォーマット）
@@ -89,7 +89,7 @@ def main():
     tweet_text = os.getenv("TWEET_TEXT", default_text)
 
     # ===== 画像パス =====
-    image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
+    image_path = os.getenv("IMAGE_PATH", "schedule-image/Thumbnail/Thumbnail.png")
     if not os.path.exists(image_path):
         print(f"[ERROR] 画像ファイルが見つかりません → {image_path}")
         sys.exit(1)
