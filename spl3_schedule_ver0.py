@@ -481,7 +481,7 @@ def draw_salmon_weapons(base, slot, weapons):
 # ★ API 共通（Session使用）
 # ==========================
 def fetch_schedule(url):
-    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"})
+    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}), timeout=10)
     resp.raise_for_status()
     return resp.json()["results"]
 
@@ -700,7 +700,7 @@ def main():
     coop_now = fetch_now("https://spla3.yuu26.com/api/coop-grouping/now")
 
     payload = {
-        "updatedHour": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).hour
+        "updatedHour": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).hour,
         "regularStages": [s.get("name") for s in (reg_now.get("stages") or [])][:2],
 
         "openRule": (open_now.get("rule") or {}).get("name", "不明"),
@@ -727,6 +727,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
