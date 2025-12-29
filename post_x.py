@@ -5,11 +5,14 @@ import tweepy
 from datetime import datetime
 import pytz
 
+
 def safe_join(items):
     return ",".join([x for x in items if x])
 
+
 def load_schedule_json(path: str):
     if not os.path.exists(path):
+        print(f"[WARN] schedule.json が見つかりません: {path}")
         return None
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -18,22 +21,21 @@ def load_schedule_json(path: str):
         print("[WARN] schedule.json の読み込みに失敗:", repr(e))
         return None
 
+
 def build_tweet_text(now_jst: datetime):
     """
     schedule.json があればそれを使って投稿文生成
     なければ固定文にフォールバック
     """
-    # workflow で download-artifact した後は `post-image/` 配下になる想定
-    schedule_json_path = os.getenv("SCHEDULE_JSON", "schedule-image/Thumbnail/schedule.json")
+    # 投稿側ジョブで download-artifact した後の想定パス
+    schedule_json_path = os.getenv("SCHEDULE_JSON", "post-image/schedule.json")
     s = load_schedule_json(schedule_json_path)
 
-    # 時刻文字列（あなたの希望フォーマット）
     # 🗓️2025年12月29日　🕛3時更新
-    if s and isinstance(s, dict) and "updatedHour" in s:
-        hour = s.get("updatedHour")
+    if isinstance(s, dict) and "updatedHour" in s:
         try:
-            hour = int(hour)
-        except:
+            hour = int(s.get("updatedHour"))
+        except Exception:
             hour = now_jst.hour
     else:
         hour = now_jst.hour
@@ -41,7 +43,7 @@ def build_tweet_text(now_jst: datetime):
     time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
 
     # JSONが取れた場合：指定フォーマットで作成
-    if s and isinstance(s, dict):
+    if isinstance(s, dict):
         regular = safe_join(s.get("regularStages", []) or [])
         open_rule = s.get("openRule", "不明")
         open_stages = safe_join(s.get("openStages", []) or [])
@@ -51,7 +53,7 @@ def build_tweet_text(now_jst: datetime):
         x_stages = safe_join(s.get("xStages", []) or [])
         salmon_stage = s.get("salmonStage", "不明")
 
-        text = (
+        return (
             "【スプラ3】スケジュール更新！\n"
             f"{time_str}\n"
             f"🟡レギュラー：{regular}\n"
@@ -60,17 +62,17 @@ def build_tweet_text(now_jst: datetime):
             f"🟢Xマッチ：{x_rule}：{x_stages}\n"
             f"🔶サーモンラン：{salmon_stage}"
         )
-        return text
 
-    # フォールバック（従来の固定文）
+    # フォールバック（固定文）
     return (
         "【スプラ3】スケジュール更新！\n"
         f"{time_str}\n"
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
 
+
 def main():
-    # GitHub Secrets / 環境変数から取得
+    # ===== 認証情報 =====
     consumer_key = os.getenv("TWITTER_API_KEY")
     consumer_secret = os.getenv("TWITTER_API_SECRET")
     access_token = os.getenv("TWITTER_ACCESS_TOKEN")
@@ -89,54 +91,48 @@ def main():
     tweet_text = os.getenv("TWEET_TEXT", default_text)
 
     # ===== 画像パス =====
-    image_path = os.getenv("IMAGE_PATH", "schedule-image/Thumbnail/Thumbnail.png")
+    # 生成→upload-artifact→download-artifact の構成だとこのパスになりやすい
+    image_path = os.getenv("IMAGE_PATH", "post-image/Thumbnail.png")
     if not os.path.exists(image_path):
         print(f"[ERROR] 画像ファイルが見つかりません → {image_path}")
+        # デバッグしやすいようにディレクトリを出す
+        try:
+            print("[DEBUG] カレント:", os.getcwd())
+            print("[DEBUG] ls -R:")
+            for root, dirs, files in os.walk("."):
+                if root.count(os.sep) > 3:
+                    continue
+                print(root, "dirs=", dirs, "files=", files)
+        except Exception:
+            pass
         sys.exit(1)
 
-    # ===== v1.1 (画像アップロード) =====
+    # ===== v1.1 (画像アップロード & 投稿) =====
     try:
         auth = tweepy.OAuth1UserHandler(
             consumer_key, consumer_secret,
             access_token, access_token_secret
         )
         api_v1 = tweepy.API(auth)
+
         media = api_v1.media_upload(filename=image_path)
         media_id = str(media.media_id)
         print(f"[INFO] 画像アップロード成功 → media_id={media_id}")
-    except Exception as e:
-        print("[ERROR] 画像アップロード失敗:", repr(e))
-        sys.exit(1)
 
-    # ===== v2 (投稿) =====
-    try:
-        client = tweepy.Client(
-            consumer_key=consumer_key,
-            consumer_secret=consumer_secret,
-            access_token=access_token,
-            access_token_secret=access_token_secret
-        )
-
-        response = client.create_tweet(
-            text=tweet_text,
+        status = api_v1.update_status(
+            status=tweet_text,
             media_ids=[media_id]
         )
 
-        tweet_id = response.data["id"]
-
-        # username の取得（安全に処理）
-        try:
-            user_info = client.get_me()
-            username = user_info.data.username if user_info.data else "unknown_user"
-        except Exception:
-            username = "unknown_user"
+        tweet_id = status.id
+        username = status.user.screen_name
 
         print(f"[SUCCESS] 投稿完了 → https://x.com/{username}/status/{tweet_id}")
         print(f"[INFO] 投稿内容:\n{tweet_text}")
 
     except tweepy.Forbidden as e:
-        # 403の中身を出す（duplicate=187 など判別できる）
-        print("[ERROR] ツイート投稿失敗(Forbidden):", repr(e))
+        # 403 duplicate(187) などを拾える場合がある
+        print("[ERROR] 投稿失敗(Forbidden):", repr(e))
         if hasattr(e, "api_codes"):
             print("api_codes:", e.api_codes)
         if hasattr(e, "api_messages"):
@@ -151,8 +147,9 @@ def main():
         sys.exit(1)
 
     except Exception as e:
-        print("[ERROR] ツイート投稿失敗:", repr(e))
+        print("[ERROR] 投稿失敗:", repr(e))
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
