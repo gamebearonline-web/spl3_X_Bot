@@ -28,6 +28,9 @@ jobs:
           SCHEDULE_JSON: Thumbnail/schedule.json
         run: python spl3_schedule_ver0.py
 
+      - name: Debug list Thumbnail
+        run: ls -la Thumbnail
+
       - name: Upload Thumbnail artifact
         uses: actions/upload-artifact@v4
         with:
