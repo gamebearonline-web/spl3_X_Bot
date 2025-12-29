@@ -25,7 +25,6 @@ def build_tweet_text(now_jst: datetime) -> str:
     schedule_json_path = os.getenv("SCHEDULE_JSON", "post-image/schedule.json")
     s = load_schedule_json(schedule_json_path)
     
-    # 🗓️2025年12月29日　🕛13時更新
     if isinstance(s, dict) and "updatedHour" in s:
         try:
             hour = int(s.get("updatedHour"))
@@ -55,7 +54,6 @@ def build_tweet_text(now_jst: datetime) -> str:
             f"🔶サーモンラン：{salmon_stage}"
         )
     
-    # フォールバック
     return (
         "【スプラ3】スケジュール更新！\n"
         f"{time_str}\n"
@@ -72,7 +70,8 @@ def print_forbidden_details(e: Exception):
     if resp is not None:
         try:
             print("status:", getattr(resp, "status_code", None))
-            print("text:", getattr(resp, "text", None)[:1000])  # 長すぎる場合は切り詰め
+            text_preview = getattr(resp, "text", "")[:1000]
+            print("text:", text_preview)
         except Exception:
             pass
 
@@ -90,13 +89,12 @@ def main():
     now = datetime.now(jst)
     tweet_text = os.getenv("TWEET_TEXT", build_tweet_text(now))
     
-    # 画像パス
     image_path = os.getenv("IMAGE_PATH", "post-image/Thumbnail.png")
     if not os.path.exists(image_path):
         print(f"[ERROR] 画像ファイルが見つかりません → {image_path}")
         sys.exit(1)
     
-    # v1.1 で画像アップロード（media_id取得）
+    # v1.1 で画像アップロード
     try:
         auth = tweepy.OAuth1UserHandler(
             consumer_key, consumer_secret,
@@ -110,34 +108,34 @@ def main():
         print("[ERROR] 画像アップロード失敗:", repr(e))
         sys.exit(1)
     
-    # v2 Client作成 + User-Agent偽装（重要！）
+    # v2 で投稿（User-Agent偽装 + 強化ヘッダー）
     try:
         client = tweepy.Client(
             consumer_key=consumer_key,
             consumer_secret=consumer_secret,
             access_token=access_token,
             access_token_secret=access_token_secret,
-            wait_on_rate_limit=True  # レートリミット対策もついでに
+            wait_on_rate_limit=True
         )
         
-        # Cloudflare回避のためのブラウザ風User-Agentを設定
-     client.session.headers.update({
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
-      "Accept-Encoding": "gzip, deflate, br",
-      "DNT": "1",
-      "Connection": "keep-alive",
-      "Upgrade-Insecure-Requests": "1",
-     })
+        # Cloudflare回避用ヘッダー（ブラウザそっくり）
+        client.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        })
         
-        # 念のため少し待機（ボットっぽさを減らす）
-        time.sleep(random.uniform(3, 8))
+        # 少し待機してボットっぽさを減らす
+        time.sleep(random.uniform(4, 10))
         
-        # v2で投稿
         resp = client.create_tweet(text=tweet_text, media_ids=[media_id])
         tweet_id = resp.data["id"] if resp and resp.data else "unknown"
-        print(f"[SUCCESS] 投稿完了 → https://x.com/user/status/{tweet_id}")
+        print(f"[SUCCESS] 投稿完了 → https://x.com/i/web/status/{tweet_id}")
         print(f"[INFO] 投稿内容:\n{tweet_text}")
         
     except tweepy.Forbidden as e:
