@@ -60,21 +60,6 @@ def build_tweet_text(now_jst: datetime) -> str:
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
 
-def print_forbidden_details(e: Exception):
-    print("[ERROR] Forbidden:", repr(e))
-    if hasattr(e, "api_codes"):
-        print("api_codes:", getattr(e, "api_codes"))
-    if hasattr(e, "api_messages"):
-        print("api_messages:", getattr(e, "api_messages"))
-    resp = getattr(e, "response", None)
-    if resp is not None:
-        try:
-            print("status:", getattr(resp, "status_code", None))
-            text_preview = getattr(resp, "text", "")[:1000]
-            print("text:", text_preview)
-        except Exception:
-            pass
-
 def main():
     consumer_key = os.getenv("TWITTER_API_KEY")
     consumer_secret = os.getenv("TWITTER_API_SECRET")
@@ -94,7 +79,7 @@ def main():
         print(f"[ERROR] 画像ファイルが見つかりません → {image_path}")
         sys.exit(1)
     
-    # v1.1 APIで認証
+    # v1.1認証
     try:
         auth = tweepy.OAuth1UserHandler(
             consumer_key, consumer_secret,
@@ -102,36 +87,32 @@ def main():
         )
         api = tweepy.API(auth, wait_on_rate_limit=True)
     except Exception as e:
-        print("[ERROR] v1.1 API認証失敗:", repr(e))
+        print("[ERROR] API認証失敗:", repr(e))
         sys.exit(1)
     
-    # v1.1 で画像アップロード
-    try:
-        media = api.media_upload(filename=image_path)
-        media_id = str(media.media_id)
-        print(f"[INFO] 画像アップロード成功 → media_id={media_id}")
-    except Exception as e:
-        print("[ERROR] 画像アップロード失敗:", repr(e))
-        sys.exit(1)
-    
-    # v1.1 で投稿（update_status_with_media）
+    # v1.1で画像付き投稿（Freeプランでも許可されている）
     try:
         # 少し待機
-        time.sleep(random.uniform(4, 10))
+        time.sleep(random.uniform(3, 8))
         
-        resp = api.update_status_with_media(
-            status=tweet_text,
-            filename=image_path,  # or use media_ids=[media_id]
-            file=open(image_path, 'rb')  # 直接ファイル指定でアップロード兼投稿
+        # update_with_media で画像付き投稿
+        status = api.update_with_media(
+            filename=image_path,
+            status=tweet_text
         )
-        tweet_id = resp.id_str
-        print(f"[SUCCESS] 投稿完了 → https://x.com/i/web/status/{tweet_id}")
+        
+        tweet_id = status.id_str
+        print(f"[SUCCESS] 投稿完了！ → https://x.com/i/web/status/{tweet_id}")
         print(f"[INFO] 投稿内容:\n{tweet_text}")
-    except tweepy.Forbidden as e:
-        print_forbidden_details(e)
-        sys.exit(1)
+        
     except Exception as e:
-        print("[ERROR] ツイート投稿失敗:", repr(e))
+        print("[ERROR] 投稿失敗:", repr(e))
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                print("status:", e.response.status_code)
+                print("text:", e.response.text)
+            except:
+                pass
         sys.exit(1)
 
 if __name__ == "__main__":
