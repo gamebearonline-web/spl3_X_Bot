@@ -23,16 +23,20 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      # spl3_schedule_ver0.py はログ上 /tmp/Thumbnail.png と /tmp/schedule.json を生成している
+      # ログ上、spl3_schedule_ver0.py は /tmp に出力している
       - name: Run image generator
         run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
 
       - name: Debug list /tmp outputs
         run: |
+          echo "== /tmp =="
           ls -la /tmp
+          echo "== /tmp/Thumbnail.png =="
           ls -la /tmp/Thumbnail.png || true
+          echo "== /tmp/schedule.json =="
           ls -la /tmp/schedule.json || true
 
+      # ★重要：PNGとJSONの両方をアップロードする
       - name: Upload artifacts (PNG + JSON)
         uses: actions/upload-artifact@v4
         with:
