@@ -60,6 +60,21 @@ def build_tweet_text(now_jst: datetime) -> str:
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
 
+def print_forbidden_details(e: Exception):
+    print("[ERROR] Forbidden:", repr(e))
+    if hasattr(e, "api_codes"):
+        print("api_codes:", getattr(e, "api_codes"))
+    if hasattr(e, "api_messages"):
+        print("api_messages:", getattr(e, "api_messages"))
+    resp = getattr(e, "response", None)
+    if resp is not None:
+        try:
+            print("status:", getattr(resp, "status_code", None))
+            text_preview = getattr(resp, "text", "")[:1000]
+            print("text:", text_preview)
+        except Exception:
+            pass
+
 def main():
     consumer_key = os.getenv("TWITTER_API_KEY")
     consumer_secret = os.getenv("TWITTER_API_SECRET")
@@ -79,47 +94,55 @@ def main():
         print(f"[ERROR] 画像ファイルが見つかりません → {image_path}")
         sys.exit(1)
     
-    # v1.1認証
+    # v1.1 で画像アップロード
     try:
         auth = tweepy.OAuth1UserHandler(
             consumer_key, consumer_secret,
             access_token, access_token_secret
         )
-        api = tweepy.API(auth, wait_on_rate_limit=True)
-    except Exception as e:
-        print("[ERROR] API認証失敗:", repr(e))
-        sys.exit(1)
-    
-    # 画像をv1.1でアップロード
-    try:
-        media = api.media_upload(filename=image_path)
-        media_id = media.media_id_string
+        api_v1 = tweepy.API(auth)
+        media = api_v1.media_upload(filename=image_path)
+        media_id = str(media.media_id)
         print(f"[INFO] 画像アップロード成功 → media_id={media_id}")
     except Exception as e:
         print("[ERROR] 画像アップロード失敗:", repr(e))
         sys.exit(1)
     
-    # v1.1で画像付き投稿（Freeプラン対応）
+    # v2 で投稿（User-Agent偽装 + 強化ヘッダー）
     try:
-        time.sleep(random.uniform(3, 8))
-        
-        status = api.update_status(
-            status=tweet_text,
-            media_ids=[media_id]
+        client = tweepy.Client(
+            consumer_key=consumer_key,
+            consumer_secret=consumer_secret,
+            access_token=access_token,
+            access_token_secret=access_token_secret,
+            wait_on_rate_limit=True
         )
         
-        tweet_id = status.id_str
-        print(f"[SUCCESS] 投稿完了！ → https://x.com/i/web/status/{tweet_id}")
+        # Cloudflare回避用ヘッダー（ブラウザそっくり）
+        client.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        })
+        
+        # 少し待機してボットっぽさを減らす
+        time.sleep(random.uniform(4, 10))
+        
+        resp = client.create_tweet(text=tweet_text, media_ids=[media_id])
+        tweet_id = resp.data["id"] if resp and resp.data else "unknown"
+        print(f"[SUCCESS] 投稿完了 → https://x.com/i/web/status/{tweet_id}")
         print(f"[INFO] 投稿内容:\n{tweet_text}")
         
+    except tweepy.Forbidden as e:
+        print_forbidden_details(e)
+        sys.exit(1)
     except Exception as e:
-        print("[ERROR] 投稿失敗:", repr(e))
-        if hasattr(e, "response") and e.response is not None:
-            try:
-                print("status:", e.response.status_code)
-                print("text:", e.response.text)
-            except:
-                pass
+        print("[ERROR] ツイート投稿失敗:", repr(e))
         sys.exit(1)
 
 if __name__ == "__main__":
