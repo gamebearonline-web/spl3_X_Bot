@@ -481,7 +481,7 @@ def draw_salmon_weapons(base, slot, weapons):
 # ★ API 共通（Session使用）
 # ==========================
 def fetch_schedule(url):
-    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}), timeout=10)
+    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
     resp.raise_for_status()
     return resp.json()["results"]
 
@@ -727,6 +727,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
