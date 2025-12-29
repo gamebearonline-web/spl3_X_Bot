@@ -660,37 +660,6 @@ def render_salmon_mode(base, results):
         draw_boss_icon(base, slot, boss_id)
         draw_big_run(base, slot, is_big_run)
 
-    # ==========================
-    # ★ 投稿文用 JSON 出力（now枠）
-    # ==========================
-    schedule_json_path = os.getenv("SCHEDULE_JSON", "/tmp/schedule.json")
-
-    reg_now = fetch_now("https://spla3.yuu26.com/api/regular/now")
-    open_now = fetch_now("https://spla3.yuu26.com/api/bankara-open/now")
-    chal_now = fetch_now("https://spla3.yuu26.com/api/bankara-challenge/now")
-    x_now = fetch_now("https://spla3.yuu26.com/api/x/now")
-    coop_now = fetch_now("https://spla3.yuu26.com/api/coop-grouping/now")
-
-    payload = {
-        "updatedHour": now_hour_jst_from_iso(reg_now.get("start_time", datetime.datetime.utcnow().isoformat() + "Z")),
-        "regularStages": [s.get("name") for s in (reg_now.get("stages") or [])][:2],
-
-        "openRule": (open_now.get("rule") or {}).get("name", "不明"),
-        "openStages": [s.get("name") for s in (open_now.get("stages") or [])][:2],
-
-        "challengeRule": (chal_now.get("rule") or {}).get("name", "不明"),
-        "challengeStages": [s.get("name") for s in (chal_now.get("stages") or [])][:2],
-
-        "xRule": (x_now.get("rule") or {}).get("name", "不明"),
-        "xStages": [s.get("name") for s in (x_now.get("stages") or [])][:2],
-
-        "salmonStage": (coop_now.get("stage") or {}).get("name", "不明"),
-        "salmonWeapons": [w.get("name") for w in (coop_now.get("weapons") or [])][:4],
-    }
-
-    with open(schedule_json_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False)
-    print("JSON出力完了:", schedule_json_path)
 
 
 # ==========================
@@ -719,12 +688,46 @@ def main():
     except Exception as e:
         print("[ERR]", e)
 
+    # ==========================
+    # ★ 投稿文用 JSON 出力（now枠）
+    # ==========================
+    schedule_json_path = os.getenv("SCHEDULE_JSON", "/tmp/schedule.json")
+
+    reg_now = fetch_now("https://spla3.yuu26.com/api/regular/now")
+    open_now = fetch_now("https://spla3.yuu26.com/api/bankara-open/now")
+    chal_now = fetch_now("https://spla3.yuu26.com/api/bankara-challenge/now")
+    x_now = fetch_now("https://spla3.yuu26.com/api/x/now")
+    coop_now = fetch_now("https://spla3.yuu26.com/api/coop-grouping/now")
+
+    payload = {
+        "updatedHour": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).hour
+        "regularStages": [s.get("name") for s in (reg_now.get("stages") or [])][:2],
+
+        "openRule": (open_now.get("rule") or {}).get("name", "不明"),
+        "openStages": [s.get("name") for s in (open_now.get("stages") or [])][:2],
+
+        "challengeRule": (chal_now.get("rule") or {}).get("name", "不明"),
+        "challengeStages": [s.get("name") for s in (chal_now.get("stages") or [])][:2],
+
+        "xRule": (x_now.get("rule") or {}).get("name", "不明"),
+        "xStages": [s.get("name") for s in (x_now.get("stages") or [])][:2],
+
+        "salmonStage": (coop_now.get("stage") or {}).get("name", "不明"),
+        "salmonWeapons": [w.get("name") for w in (coop_now.get("weapons") or [])][:4],
+    }
+
+    with open(schedule_json_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False)
+    print("JSON出力完了:", schedule_json_path)
+
+    
     base.save(OUTPUT_PATH)
     print("出力完了:", OUTPUT_PATH)
 
 
 if __name__ == "__main__":
     main()
+
 
 
 
