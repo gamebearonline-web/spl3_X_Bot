@@ -24,11 +24,15 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run image generator
+        env:
+          SCHEDULE_JSON: Thumbnail/schedule.json
         run: python spl3_schedule_ver0.py
 
       - name: Upload Thumbnail artifact
         uses: actions/upload-artifact@v4
         with:
           name: schedule-image
-          path: Thumbnail/Thumbnail.png
+          path: |
+            Thumbnail/Thumbnail.png
+            Thumbnail/schedule.json
           if-no-files-found: error
