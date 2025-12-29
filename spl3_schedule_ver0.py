@@ -4,6 +4,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 import datetime
 import os
+import json
 
 # ==========================
 # ★ 引数 --output 対応
@@ -484,6 +485,25 @@ def fetch_schedule(url):
     resp.raise_for_status()
     return resp.json()["results"]
 
+# ==========================
+# ★ now用の取得関数
+# ==========================
+def fetch_now(url):
+    """ nowエンドポイント（results[0]）を返す """
+    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    return (data.get("results") or [{}])[0]
+
+def join_stage_names(stages):
+    return ",".join([s.get("name","") for s in (stages or []) if s.get("name")])
+
+def now_hour_jst_from_iso(iso_str: str) -> int:
+    # APIはZ（UTC）なので JST に直して “何時更新” の “時” に使う
+    dt_utc = datetime.datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+    dt_jst = dt_utc.astimezone(datetime.timezone(datetime.timedelta(hours=9)))
+    return dt_jst.hour
+
 
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
@@ -640,6 +660,38 @@ def render_salmon_mode(base, results):
         draw_boss_icon(base, slot, boss_id)
         draw_big_run(base, slot, is_big_run)
 
+    # ==========================
+    # ★ 投稿文用 JSON 出力（now枠）
+    # ==========================
+    schedule_json_path = os.getenv("SCHEDULE_JSON", "/tmp/schedule.json")
+
+    reg_now = fetch_now("https://spla3.yuu26.com/api/regular/now")
+    open_now = fetch_now("https://spla3.yuu26.com/api/bankara-open/now")
+    chal_now = fetch_now("https://spla3.yuu26.com/api/bankara-challenge/now")
+    x_now = fetch_now("https://spla3.yuu26.com/api/x/now")
+    coop_now = fetch_now("https://spla3.yuu26.com/api/coop-grouping/now")
+
+    payload = {
+        "updatedHour": now_hour_jst_from_iso(reg_now.get("start_time", datetime.datetime.utcnow().isoformat() + "Z")),
+        "regularStages": [s.get("name") for s in (reg_now.get("stages") or [])][:2],
+
+        "openRule": (open_now.get("rule") or {}).get("name", "不明"),
+        "openStages": [s.get("name") for s in (open_now.get("stages") or [])][:2],
+
+        "challengeRule": (chal_now.get("rule") or {}).get("name", "不明"),
+        "challengeStages": [s.get("name") for s in (chal_now.get("stages") or [])][:2],
+
+        "xRule": (x_now.get("rule") or {}).get("name", "不明"),
+        "xStages": [s.get("name") for s in (x_now.get("stages") or [])][:2],
+
+        "salmonStage": (coop_now.get("stage") or {}).get("name", "不明"),
+        "salmonWeapons": [w.get("name") for w in (coop_now.get("weapons") or [])][:4],
+    }
+
+    with open(schedule_json_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False)
+    print("JSON出力完了:", schedule_json_path)
+
 
 # ==========================
 # ★ メイン
@@ -673,6 +725,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
