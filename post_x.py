@@ -90,7 +90,7 @@ def main():
         print("[ERROR] API認証失敗:", repr(e))
         sys.exit(1)
     
-    # 画像アップロード（v1.1）
+    # 画像をv1.1でアップロード
     try:
         media = api.media_upload(filename=image_path)
         media_id = media.media_id_string
@@ -99,7 +99,7 @@ def main():
         print("[ERROR] 画像アップロード失敗:", repr(e))
         sys.exit(1)
     
-    # v1.1で投稿（最新Tweepy対応）
+    # v1.1で画像付き投稿（Freeプラン対応）
     try:
         time.sleep(random.uniform(3, 8))
         
