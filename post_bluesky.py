@@ -1,27 +1,71 @@
-# post_bluesky.py (2025 Optimized & Fixed)
+# post_bluesky.py (X投稿文と同一フォーマット対応)
 import os
 import sys
+import json
 import requests
 from datetime import datetime
 import pytz
 
 
-def generate_default_text():
-    jst = pytz.timezone('Asia/Tokyo')
-    now = datetime.now(jst)
-    time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
+def safe_join(items):
+    return ",".join([x for x in items if x])
 
+
+def load_schedule_json(path: str):
+    if not os.path.exists(path):
+        print(f"[WARN] schedule.json が見つかりません: {path}")
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print("[WARN] schedule.json の読み込みに失敗:", repr(e))
+        return None
+
+
+def build_post_text(now_jst: datetime) -> str:
+    schedule_json_path = os.getenv("SCHEDULE_JSON", "post-image/schedule.json")
+    s = load_schedule_json(schedule_json_path)
+
+    # updatedHour があればそれを使う（Xと同じ挙動）
+    if isinstance(s, dict) and "updatedHour" in s:
+        try:
+            hour = int(s.get("updatedHour"))
+        except Exception:
+            hour = now_jst.hour
+    else:
+        hour = now_jst.hour
+
+    time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
+
+    if isinstance(s, dict):
+        regular = safe_join(s.get("regularStages", []) or [])
+        open_rule = s.get("openRule", "不明")
+        open_stages = safe_join(s.get("openStages", []) or [])
+        chal_rule = s.get("challengeRule", "不明")
+        chal_stages = safe_join(s.get("challengeStages", []) or [])
+        x_rule = s.get("xRule", "不明")
+        x_stages = safe_join(s.get("xStages", []) or [])
+        salmon_stage = s.get("salmonStage", "不明")
+
+        return (
+            "【スプラ3】スケジュール更新！\n"
+            f"{time_str}\n"
+            f"🟡レギュラー：{regular}\n"
+            f"🟠オープン：{open_rule}：{open_stages}\n"
+            f"🟠チャレンジ：{chal_rule}：{chal_stages}\n"
+            f"🟢Xマッチ：{x_rule}：{x_stages}\n"
+            f"🔶サーモンラン：{salmon_stage}"
+        )
+
+    # schedule.json が無い/壊れている場合の保険
     return (
-        f"【スプラ3】スケジュール更新！\n"
-        f"\n"
+        "【スプラ3】スケジュール更新！\n"
         f"{time_str}\n"
-        f"#スプラ3スケジュール #スプラトゥーン3 #Splatoon3"
+        "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
 
 
-# --------------------------------------------------------
-# 🔧 Bluesky API 安全版リクエストラッパー（headersを確実に適用）
-# --------------------------------------------------------
 def bluesky_request(url, method="POST", headers=None, json=None, data=None):
     try:
         res = requests.request(
@@ -44,9 +88,6 @@ def bluesky_request(url, method="POST", headers=None, json=None, data=None):
         sys.exit(1)
 
 
-# --------------------------------------------------------
-#                 Bluesky 投稿
-# --------------------------------------------------------
 def post_to_bluesky(image_path, text):
     HANDLE = os.getenv("BSKY_USER")
     PASSWORD = os.getenv("BSKY_PASS")
@@ -86,12 +127,7 @@ def post_to_bluesky(image_path, text):
     else:
         print(f"[WARN] 画像が見つかりません → {image_path}")
 
-    # ===== ③ 投稿文 =====
-    if not text.strip():
-        text = generate_default_text()
-        print("[INFO] 投稿文が空 → デフォルトを使用")
-
-    # ===== ④ レコード作成 =====
+    # ===== ③ レコード作成 =====
     record = {
         "$type": "app.bsky.feed.post",
         "text": text,
@@ -102,9 +138,7 @@ def post_to_bluesky(image_path, text):
     if blob:
         record["embed"] = {
             "$type": "app.bsky.embed.images",
-            "images": [
-                {"image": blob, "alt": "スプラトゥーン3 スケジュール画像"}
-            ]
+            "images": [{"image": blob, "alt": "スプラトゥーン3 スケジュール画像"}]
         }
 
     payload = {
@@ -113,9 +147,9 @@ def post_to_bluesky(image_path, text):
         "record": record
     }
 
-    # ===== ⑤ 投稿 =====
+    # ===== ④ 投稿 =====
     print("[INFO] Bluesky に投稿中...")
-    result = bluesky_request(
+    bluesky_request(
         "https://bsky.social/xrpc/com.atproto.repo.createRecord",
         headers={"Authorization": f"Bearer {access_jwt}"},
         json=payload
@@ -126,10 +160,13 @@ def post_to_bluesky(image_path, text):
 
 
 def main():
+    jst = pytz.timezone("Asia/Tokyo")
+    now = datetime.now(jst)
+
+    # ✅ テスト用：TWEET_TEXT があればそれを優先
     text = os.getenv("TWEET_TEXT", "").strip()
     if not text:
-        print("[INFO] TWEET_TEXT 未指定 → デフォルト使用")
-        text = generate_default_text()
+        text = build_post_text(now)
 
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
     post_to_bluesky(image_path, text)
