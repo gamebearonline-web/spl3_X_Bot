@@ -1,30 +1,72 @@
-# post_misskey.py (2025 Optimized)
+# post_misskey.py (X投稿文と同一フォーマット対応)
 import os
 import sys
+import json
 import requests
 from datetime import datetime
 import pytz
 
 
-def generate_default_text():
-    """X / Bluesky / Misskey 共通の投稿文テンプレート"""
-    jst = pytz.timezone("Asia/Tokyo")
-    now = datetime.now(jst)
-    time_str = now.strftime("🗓️ %Y年%-m月%-d日　🕛 %-H時更新")
+def safe_join(items):
+    return ",".join([x for x in items if x])
+
+
+def load_schedule_json(path: str):
+    if not os.path.exists(path):
+        print(f"[WARN] schedule.json が見つかりません: {path}")
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print("[WARN] schedule.json の読み込みに失敗:", repr(e))
+        return None
+
+
+def build_post_text(now_jst: datetime) -> str:
+    schedule_json_path = os.getenv("SCHEDULE_JSON", "post-image/schedule.json")
+    s = load_schedule_json(schedule_json_path)
+
+    if isinstance(s, dict) and "updatedHour" in s:
+        try:
+            hour = int(s.get("updatedHour"))
+        except Exception:
+            hour = now_jst.hour
+    else:
+        hour = now_jst.hour
+
+    time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
+
+    if isinstance(s, dict):
+        regular = safe_join(s.get("regularStages", []) or [])
+        open_rule = s.get("openRule", "不明")
+        open_stages = safe_join(s.get("openStages", []) or [])
+        chal_rule = s.get("challengeRule", "不明")
+        chal_stages = safe_join(s.get("challengeStages", []) or [])
+        x_rule = s.get("xRule", "不明")
+        x_stages = safe_join(s.get("xStages", []) or [])
+        salmon_stage = s.get("salmonStage", "不明")
+
+        return (
+            "【スプラ3】スケジュール更新！\n"
+            f"{time_str}\n"
+            f"🟡レギュラー：{regular}\n"
+            f"🟠オープン：{open_rule}：{open_stages}\n"
+            f"🟠チャレンジ：{chal_rule}：{chal_stages}\n"
+            f"🟢Xマッチ：{x_rule}：{x_stages}\n"
+            f"🔶サーモンラン：{salmon_stage}"
+        )
 
     return (
-        f"【スプラ3】スケジュール更新！\n"
+        "【スプラ3】スケジュール更新！\n"
         f"{time_str}\n"
-        f"#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
+        "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
 
 
 def misskey_request(url, method="POST", headers=None, data=None, files=None, json=None):
-    """Misskey API を安全にラップしてエラーを完全可視化"""
     try:
-        res = requests.request(
-            method, url, headers=headers, data=data, files=files, json=json
-        )
+        res = requests.request(method, url, headers=headers, data=data, files=files, json=json)
         if res.status_code not in (200, 204):
             print(f"[ERROR] Misskey API error: {url}")
             print(f"status={res.status_code}")
@@ -42,7 +84,7 @@ def post_to_misskey(image_path, text):
         print("[ERROR] MISSKEY_TOKEN が設定されていません")
         sys.exit(1)
 
-    MISSKEY_API = "https://misskey.io/api"
+    MISSKEY_API = os.getenv("MISSKEY_API", "https://misskey.io/api")  # ✅ 他インスタンス対応
 
     # ======== ① 画像アップロード ========
     file_id = None
@@ -64,12 +106,7 @@ def post_to_misskey(image_path, text):
     else:
         print(f"[WARN] 画像ファイルが見つかりません → {image_path}")
 
-    # ======== ② 投稿文補完 ========
-    if not text or text.strip() == "":
-        text = generate_default_text()
-        print("[INFO] 投稿文が空 → デフォルトで補完")
-
-    # ======== ③ 投稿データ ========
+    # ======== ② 投稿データ ========
     note = {
         "i": token,
         "text": text,
@@ -79,7 +116,7 @@ def post_to_misskey(image_path, text):
     if file_id:
         note["fileIds"] = [file_id]
 
-    # ======== ④ 投稿 ========
+    # ======== ③ 投稿 ========
     print("[INFO] Misskey に投稿中...")
     post_res = misskey_request(
         f"{MISSKEY_API}/notes/create",
@@ -89,7 +126,6 @@ def post_to_misskey(image_path, text):
     note_id = post_res.get("createdNote", {}).get("id", "")
     print(f"[SUCCESS] Misskey 投稿成功！ note_id={note_id}")
 
-    # JST の投稿時刻を表示
     jst = pytz.timezone("Asia/Tokyo")
     now = datetime.now(jst)
     print("[INFO] 投稿日時(JST):", now.strftime("%Y-%m-%d %H:%M:%S"))
@@ -97,11 +133,13 @@ def post_to_misskey(image_path, text):
 
 
 def main():
-    # 環境変数から取得（空なら補完）
+    jst = pytz.timezone("Asia/Tokyo")
+    now = datetime.now(jst)
+
+    # ✅ テスト用：TWEET_TEXT があればそれを優先
     text = os.getenv("TWEET_TEXT", "").strip()
     if not text:
-        text = generate_default_text()
-        print("[INFO] TWEET_TEXT 未設定 → デフォルト使用")
+        text = build_post_text(now)
 
     image_path = os.getenv("IMAGE_PATH", "Thumbnail/Thumbnail.png")
     post_to_misskey(image_path, text)
