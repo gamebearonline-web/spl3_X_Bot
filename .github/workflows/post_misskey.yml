@@ -26,12 +26,14 @@ jobs:
       # ======================
       # ★ 画像生成（保存はしない）
       #   - 画像: /tmp/Thumbnail.png
-      #   - JSON: /tmp/schedule.json  （spl3_schedule_ver0.py が生成）
+      #   - JSON: /tmp/schedule.json
       # ======================
       - name: Generate image + schedule.json for POST
         run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
 
-      # ★デバッグ（任意だけどおすすめ）
+      # ======================
+      # ★ デバッグ（/tmp 確認）
+      # ======================
       - name: Debug - list /tmp
         run: |
           ls -la /tmp
@@ -62,7 +64,9 @@ jobs:
           name: post-image
           path: post-image
 
-      # ★デバッグ（任意）
+      # ======================
+      # ★ デバッグ（artifact 確認）
+      # ======================
       - name: Debug - list post-image
         run: |
           ls -la post-image
@@ -72,9 +76,8 @@ jobs:
       # ======================
       - name: Post to Misskey
         env:
-         MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
-         MISSKEY_API: ${{ secrets.MISSKEY_URL }}/api
-         IMAGE_PATH: post-image/Thumbnail.png
-         SCHEDULE_JSON: post-image/schedule.json
+          MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
+          MISSKEY_API: ${{ secrets.MISSKEY_URL }}/api
+          IMAGE_PATH: post-image/Thumbnail.png
+          SCHEDULE_JSON: post-image/schedule.json
         run: python post_misskey.py
-
