@@ -72,12 +72,9 @@ jobs:
       # ======================
       - name: Post to Misskey
         env:
-          MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
-
-          # ✅ あなたの secrets.MISSKEY_URL が「https://misskey.io」なら
-          #    下で /api を付けて MISSKEY_API にします
-          MISSKEY_API: ${{ secrets.MISSKEY_URL }}/api
-
-          IMAGE_PATH: post-image/Thumbnail.png
-          SCHEDULE_JSON: post-image/schedule.json
+         MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
+         MISSKEY_API: ${{ secrets.MISSKEY_URL }}/api
+         IMAGE_PATH: post-image/Thumbnail.png
+         SCHEDULE_JSON: post-image/schedule.json
         run: python post_misskey.py
+
