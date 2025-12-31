@@ -18,30 +18,54 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
       # ======================
       # ★ 投稿専用画像生成（保存はしない）
+      #   - 画像: /tmp/Thumbnail.png
+      #   - JSON: /tmp/schedule.json  （spl3_schedule_ver0.py が生成）
       # ======================
-      - name: Generate image for POST
+      - name: Generate image + schedule.json for POST
         run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
 
+      # ★デバッグ（任意だけど超おすすめ）
+      - name: Debug - list /tmp
+        run: |
+          ls -la /tmp
+          echo "----- schedule.json preview -----"
+          if [ -f /tmp/schedule.json ]; then
+            head -n 50 /tmp/schedule.json
+          else
+            echo "❌ /tmp/schedule.json NOT FOUND"
+          fi
+
       # ======================
-      # ★ artifact アップロード
+      # ★ artifact アップロード（画像 + JSON）
       # ======================
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: post-image
-          path: /tmp/Thumbnail.png
+          path: |
+            /tmp/Thumbnail.png
+            /tmp/schedule.json
 
       # ======================
       # ★ artifact ダウンロード
       # ======================
-      - uses: actions/download-artifact@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
           name: post-image
           path: post-image
+
+      # ★デバッグ（任意）
+      - name: Debug - list post-image
+        run: |
+          ls -la post-image
 
       # ======================
       # ★ Bluesky 投稿
@@ -50,5 +74,6 @@ jobs:
         env:
           BSKY_USER: ${{ secrets.BSKY_USER }}
           BSKY_PASS: ${{ secrets.BSKY_PASS }}
-          IMAGE_PATH: post-image/Thumbnail.png   # ← ここを修正
+          IMAGE_PATH: post-image/Thumbnail.png
+          SCHEDULE_JSON: post-image/schedule.json
         run: python post_bluesky.py
