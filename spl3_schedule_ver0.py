@@ -67,6 +67,17 @@ def fetch_image(url):
         IMAGE_CACHE[url] = Image.open(BytesIO(resp.content)).convert("RGB")
     return IMAGE_CACHE[url].copy()
 
+# 透過PNG(武器など)用：RGBAで取得してマスク貼り付け可能にする
+IMAGE_CACHE_RGBA = {}
+
+def fetch_image_rgba(url):
+    if url not in IMAGE_CACHE_RGBA:
+        resp = session.get(url, headers={"User-Agent": "Spla3Img/1.0"})
+        resp.raise_for_status()
+        IMAGE_CACHE_RGBA[url] = Image.open(BytesIO(resp.content)).convert("RGBA")
+    return IMAGE_CACHE_RGBA[url].copy()
+
+
 # ==========================
 # ★ フェス開催中判定（グローバル）
 # ==========================
@@ -529,11 +540,14 @@ def draw_salmon_weapons(base, slot, weapons):
 
         wx, wy = cslot[key]
         try:
-            img = fetch_image(weapons[i]["image"])
-            img = img.resize(size)
+            # ★ここが重要：RGBAで取得して透過を保持
+            img = fetch_image_rgba(weapons[i]["image"]).resize(size)
+            # RGBのbaseに貼るので、maskとしてimg自身(α)を渡す
             base.paste(img, (int(wx), int(wy)), img)
-        except Exception:
-            pass
+        except Exception as e:
+            # もし今後も出ない場合の原因が分かるようにログ出す（任意）
+            print(f"[WARN] weapon paste failed slot={slot} i={i}: {e}")
+
 
 
 # ==========================
@@ -844,6 +858,7 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 
 
 
