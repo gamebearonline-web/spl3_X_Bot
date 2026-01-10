@@ -72,22 +72,26 @@ def fetch_image(url):
 # ==========================
 def check_fest_status():
     """
-    各モードの now を確認し、フェス開催中かどうかを判定
-    APIレスポンスの festMode, is_fest, setting.festMode などをチェック
+    フェス専用APIを確認し、フェス開催中かどうかを判定
     """
     try:
-        # バンカラオープンの now を確認（フェス情報が含まれやすい）
         resp = session.get(
-            "https://spla3.yuu26.com/api/bankara-open/now",
+            "https://spla3.yuu26.com/api/fest/now",
             headers={"User-Agent": "Spla3StageBot/1.0"},
             timeout=10
         )
         resp.raise_for_status()
         data = resp.json()
         
-        results = data.get("results", [])
-        if not results:
-            return False
+        results = data.get("results")
+        if results:
+            print("[INFO] フェス開催中: fest API returned data")
+            return True
+            
+    except Exception as e:
+        print(f"[INFO] フェス未開催: {e}")
+    
+    return False
         
         now_data = results[0] if isinstance(results, list) else results
         
@@ -579,7 +583,6 @@ def render_versus_mode(base, mode, results, is_fest_active=False):
     
     coords_mode = COORDS_TABLE[mode]
     draw = ImageDraw.Draw(base)
-    # ... 残りのコード
 
     for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
         if slot not in coords_mode or idx >= len(results):
@@ -587,6 +590,12 @@ def render_versus_mode(base, mode, results, is_fest_active=False):
 
         info  = results[idx]
         cslot = coords_mode[slot]
+
+        # ステージ情報が None の場合はスキップ
+        stages = info.get("stages")
+        if stages is None:
+            print(f"[WARN] {mode} {slot}: stages is None, skipping")
+            continue
 
         # 時刻判定
         start = datetime.datetime.fromisoformat(info["start_time"].replace("Z", "+00:00"))
@@ -811,6 +820,7 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 
 
 
