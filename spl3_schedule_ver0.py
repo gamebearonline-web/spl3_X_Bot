@@ -754,19 +754,19 @@ def main():
 
     # フェス判定
     is_fest_active = check_fest_status()
-    
+
     # 通常テンプレートをベースに使用
     if not os.path.exists(TEMPLATE_PATH):
         print(f"[ERROR] テンプレートが見つかりません: {TEMPLATE_PATH}")
         return
-    
+
     print(f"[INFO] ベーステンプレートを使用: {TEMPLATE_PATH}")
     base = Image.open(TEMPLATE_PATH).convert("RGB")
 
     try:
         # レギュラーは常に通常API
         render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), is_fest_active)
-        
+
         # フェス時は専用API、通常時は通常API
         if is_fest_active:
             render_versus_mode(base, "open", fetch_schedule(API_URLS["fest_open"]), is_fest_active)
@@ -774,10 +774,21 @@ def main():
         else:
             render_versus_mode(base, "open", fetch_schedule(API_URLS["open"]), is_fest_active)
             render_versus_mode(base, "challenge", fetch_schedule(API_URLS["challenge"]), is_fest_active)
-        
-        # Xマッチとサーモンは常に通常API
-        if not is_fest_active:     render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), is_fest_active) else:     print("[INFO] フェス中のため Xマッチ描画をスキップ")
+
+        # Xマッチ（フェス中は停止するので描画しない）
+        if not is_fest_active:
+            render_versus_mode(
+                base,
+                "xmatch",
+                fetch_schedule(API_URLS["xmatch"]),
+                is_fest_active
+            )
+        else:
+            print("[INFO] フェス中のため Xマッチ描画をスキップ")
+
+        # サーモンは常に通常API
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
+
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
 
@@ -794,21 +805,29 @@ def main():
     else:
         open_now = fetch_now(API_NOW_URLS["open"])
         chal_now = fetch_now(API_NOW_URLS["challenge"])
-    
+
     reg_now = fetch_now(API_NOW_URLS["regular"])
-    x_now = fetch_now(API_NOW_URLS["xmatch"])
+
+    # フェス中はXマッチが空になりがちなので、JSONも空安全にしておく
+    x_now = {} if is_fest_active else fetch_now(API_NOW_URLS["xmatch"])
+
     coop_now = fetch_now(API_NOW_URLS["salmon"])
 
     payload = {
         "updatedHour": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).hour,
         "isFestActive": is_fest_active,
+
         "regularStages": [s.get("name") for s in (reg_now.get("stages") or [])][:2],
+
         "openRule": (open_now.get("rule") or {}).get("name", "不明"),
         "openStages": [s.get("name") for s in (open_now.get("stages") or [])][:2],
+
         "challengeRule": (chal_now.get("rule") or {}).get("name", "不明"),
         "challengeStages": [s.get("name") for s in (chal_now.get("stages") or [])][:2],
+
         "xRule": (x_now.get("rule") or {}).get("name", "不明"),
         "xStages": [s.get("name") for s in (x_now.get("stages") or [])][:2],
+
         "salmonStage": (coop_now.get("stage") or {}).get("name", "不明"),
         "salmonWeapons": [w.get("name") for w in (coop_now.get("weapons") or [])][:4],
     }
@@ -821,9 +840,11 @@ def main():
     print(f"[INFO] 画像出力完了: {OUTPUT_PATH}")
 
 
+
 if __name__ == "__main__":
     main()
         
+
 
 
 
