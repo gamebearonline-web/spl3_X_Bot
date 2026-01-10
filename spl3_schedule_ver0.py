@@ -109,34 +109,7 @@ def check_fest_slots():
 
     return slots
 
-
-        
-          
-        # 複数のフェスフラグをチェック
-        if now_data.get("festMode"):
-            print("[INFO] フェス開催中: festMode=True")
-            return True
-        
-        if now_data.get("is_fest"):
-            print("[INFO] フェス開催中: is_fest=True")
-            return True
-        
-        # setting 内のフェス情報をチェック
-        setting = now_data.get("setting", {})
-        if setting.get("festMode") or setting.get("__isFestival"):
-            print("[INFO] フェス開催中: setting.festMode=True")
-            return True
-        
-        # vsRule が null の場合もフェスの可能性
-        if now_data.get("rule") is None or now_data.get("vsRule") is None:
-            print("[INFO] フェス開催中の可能性: rule=None")
-            return True
-            
-    except Exception as e:
-        print(f"[WARN] フェス判定エラー: {e}")
-    
-    return False
-
+       
 
 # ==========================
 # ★ テーマカラー
@@ -594,13 +567,13 @@ def fetch_now(url):
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
 # ==========================
-def render_versus_mode(base, mode, results, is_fest_active=False):
+def render_versus_mode(base, mode, results, fest_slots=None):
     print(f"[DEBUG] render_versus_mode: mode={mode}, results count={len(results) if results else 0}")
-    
+
     if not results:
         print(f"[WARN] {mode} has no results")
         return
-    
+
     coords_mode = COORDS_TABLE[mode]
     draw = ImageDraw.Draw(base)
 
@@ -611,23 +584,16 @@ def render_versus_mode(base, mode, results, is_fest_active=False):
         info  = results[idx]
         cslot = coords_mode[slot]
 
-        # ステージ情報が None の場合はスキップ
         stages = info.get("stages")
         if stages is None:
             print(f"[WARN] {mode} {slot}: stages is None, skipping")
             continue
 
-        # 時刻判定
-        start = datetime.datetime.fromisoformat(info["start_time"].replace("Z", "+00:00"))
-        end   = datetime.datetime.fromisoformat(info["end_time"].replace("Z", "+00:00"))
-        now   = datetime.datetime.now(datetime.timezone.utc)
-        is_now_slot = start <= now < end
+        # ★スロット別フェス判定（open/challengeだけ fest_slots を渡す運用）
+        is_fest_slot = bool(fest_slots and fest_slots.get(slot, False))
 
-        # フェス色判定（nowスロット かつ グローバルフェスフラグ）
-        use_fest_color = is_fest_active
-
-        # 背景色決定
-        if use_fest_color and mode in FEST_TEXT_BG:
+        # 背景色決定（フェス枠だけ FEST_TEXT_BG を使う）
+        if is_fest_slot and mode in FEST_TEXT_BG:
             bg_color = FEST_TEXT_BG[mode]
         else:
             bg_color = MODE_COLORS[mode]
@@ -637,7 +603,9 @@ def render_versus_mode(base, mode, results, is_fest_active=False):
         font_stage = FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL
 
         # 時刻表示
-        if "start_time" in cslot:
+        if "start_time" in cslot and info.get("start_time") and info.get("end_time"):
+            start = datetime.datetime.fromisoformat(info["start_time"].replace("Z", "+00:00"))
+            end   = datetime.datetime.fromisoformat(info["end_time"].replace("Z", "+00:00"))
             time_text = f"{start.strftime('%H:%M')}~{end.strftime('%H:%M')}"
             draw_text_with_bg(draw, cslot["start_time"], time_text, font_time, bg_fill=bg_color)
 
@@ -662,6 +630,7 @@ def render_versus_mode(base, mode, results, is_fest_active=False):
         # ルールアイコン
         rule_key = info.get("rule", {}).get("key")
         draw_rule_icon(base, mode, slot, rule_key)
+
 
 
 # ==========================
@@ -772,7 +741,6 @@ def apply_fest_overlays(base, fest_slots):
             print(f"[INFO] フェス{slot}オーバーレイ適用: {FEST_NEXT_OVERLAY}")
 
 
-
 # ==========================
 # ★ メイン
 # ==========================
@@ -786,10 +754,7 @@ def main():
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    # フェス判定
-    is_fest_active = check_fest_status()
-
-    # 通常テンプレートをベースに使用
+    # テンプレ確認
     if not os.path.exists(TEMPLATE_PATH):
         print(f"[ERROR] テンプレートが見つかりません: {TEMPLATE_PATH}")
         return
@@ -797,24 +762,24 @@ def main():
     print(f"[INFO] ベーステンプレートを使用: {TEMPLATE_PATH}")
     base = Image.open(TEMPLATE_PATH).convert("RGB")
 
-        # フェス枠（now/next1~4）判定
-    fest_slots = check_fest_slots()
+    # ✅ フェス枠（now/next/next2/next3/next4）をスロット別に判定
+    fest_slots = check_fest_slots()  # {"now":bool, "next":bool, ...}
 
+    # スロット別に「通常/フェス API」を合成するため、必要な schedule を取得
     try:
         # regular は常に通常
         render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), fest_slots=None)
 
-        # open/challenge は「スロット別に」フェスAPI or 通常API を合成して描画
+        # open/challenge はスロット別に合成して描画
         open_normal = fetch_schedule(API_URLS["open"])
         open_fest   = fetch_schedule(API_URLS["fest_open"])
-
         chal_normal = fetch_schedule(API_URLS["challenge"])
         chal_fest   = fetch_schedule(API_URLS["fest_challenge"])
 
-        def merge_by_fest_slot(normal_results, fest_results, fest_slots):
+        def merge_by_fest_slot(normal_results, fest_results, fest_slots_dict):
             merged = []
             for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
-                if fest_slots.get(slot) and idx < len(fest_results):
+                if fest_slots_dict.get(slot) and idx < len(fest_results):
                     merged.append(fest_results[idx])
                 elif idx < len(normal_results):
                     merged.append(normal_results[idx])
@@ -830,22 +795,24 @@ def main():
         render_versus_mode(base, "open", open_merged, fest_slots=fest_slots)
         render_versus_mode(base, "challenge", chal_merged, fest_slots=fest_slots)
 
-        # xmatch / salmon は通常（xmatchはフェス期間中stages=Noneになりやすいので勝手にスキップされる）
+        # xmatch / salmon は通常（フェス中xmatchはstages=Noneで勝手にスキップされる）
         render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
 
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
 
-    # ★フェス枠だけオーバーレイ
+    # ✅ フェス枠だけオーバーレイ（指定座標に貼る）
     apply_fest_overlays(base, fest_slots)
 
-
-    # JSON出力
+    # ==========================
+    # ✅ JSON出力（nowスロットの情報を優先）
+    #   ※ スロット別判定に合わせるため、nowがフェスなら fest_now を使う
+    # ==========================
     schedule_json_path = os.getenv("SCHEDULE_JSON", "/tmp/schedule.json")
 
-    # フェス時は専用API、通常時は通常API
-    if is_fest_active:
+    # nowスロットがフェスならフェスnow API、そうでなければ通常now API
+    if fest_slots.get("now"):
         open_now = fetch_now(API_NOW_URLS["fest_open"])
         chal_now = fetch_now(API_NOW_URLS["fest_challenge"])
     else:
@@ -854,14 +821,17 @@ def main():
 
     reg_now = fetch_now(API_NOW_URLS["regular"])
 
-    # フェス中はXマッチが空になりがちなので、JSONも空安全にしておく
-    x_now = {} if is_fest_active else fetch_now(API_NOW_URLS["xmatch"])
+    # xmatch はフェス枠中に空になりがちなので、nowがフェスなら空で安全に
+    x_now = {} if fest_slots.get("now") else fetch_now(API_NOW_URLS["xmatch"])
 
     coop_now = fetch_now(API_NOW_URLS["salmon"])
 
     payload = {
         "updatedHour": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).hour,
-        "isFestActive": is_fest_active,
+
+        # ✅ 「全体フェス」ではなく「nowがフェスか」を入れる（必要なら keys 全部も入れられる）
+        "isFestActive": bool(fest_slots.get("now")),
+        "festSlots": fest_slots,  # ← これを入れておくと後で便利（不要なら消してOK）
 
         "regularStages": [s.get("name") for s in (reg_now.get("stages") or [])][:2],
 
@@ -886,10 +856,16 @@ def main():
     print(f"[INFO] 画像出力完了: {OUTPUT_PATH}")
 
 
+if __name__ == "__main__":
+    main()
+
+
+
 
 if __name__ == "__main__":
     main()
         
+
 
 
 
