@@ -713,11 +713,11 @@ def paste_overlay_rect(base: Image.Image, overlay_path: str, x: int, y: int, w: 
 def apply_fest_overlays(base, fest_slots):
     """
     フェス枠のスロットだけオーバーレイを貼る
-    - now:  x20 y10  w920 h310
-    - next: x20 y320 w920 h80
-    - next2:x20 y400 w920 h80
-    - next3:x20 y480 w920 h80
-    - next4:x20 y560 w920 h80
+    - now:  x20 y10  w928 h311
+    - next: x20 y320 w928 h104
+    - next2:x20 y400 w928 h104
+    - next3:x20 y480 w928 h104
+    - next4:x20 y560 w928 h104
     """
     if not fest_slots or not any(fest_slots.values()):
         return
@@ -865,6 +865,7 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     main()
         
+
 
 
 
