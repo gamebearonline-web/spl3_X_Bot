@@ -81,31 +81,34 @@ def fetch_image_rgba(url):
 # ==========================
 # ★ フェス開催中判定（グローバル）
 # ==========================
-def check_fest_status() -> bool:
+def check_fest_slots():
     """
-    フェス開催中か判定
-    - /api/fest/now の results が空でなければ True
+    fest/schedule を見て、now/next/next2/next3/next4 がフェス枠かを判定して返す
+    判定条件：そのスロットの stages が None ではない（=フェスのステージ情報がある）
     """
+    slots = {"now": False, "next": False, "next2": False, "next3": False, "next4": False}
+
     try:
-        resp = session.get(
-            "https://spla3.yuu26.com/api/fest/now",
-            headers={"User-Agent": "Spla3StageBot/1.0"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        fest_results = fetch_schedule(API_URLS["fest_open"])  # https://spla3.yuu26.com/api/fest/schedule
 
-        results = data.get("results")
-        if results:
-            print("[INFO] フェス開催中: fest/now returned results")
-            return True
+        for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
+            if idx >= len(fest_results):
+                continue
+            info = fest_results[idx]
+            stages = info.get("stages")
+            if stages is not None:
+                slots[slot] = True
 
-        print("[INFO] フェス未開催: fest/now results empty")
-        return False
+        if any(slots.values()):
+            print(f"[INFO] フェス枠あり: {slots}")
+        else:
+            print("[INFO] フェス枠なし")
 
     except Exception as e:
-        print(f"[WARN] フェス判定エラー: {e}")
-        return False
+        print(f"[WARN] フェス枠判定エラー: {e}")
+
+    return slots
+
 
         
           
@@ -716,41 +719,58 @@ def render_salmon_mode(base, results):
         draw_boss_icon(base, slot, boss_id)
         draw_big_run(base, slot, is_big_run)
 
+# ==========================
+# ★ 指定位置に貼る用ユーティリティを追加（RGBAで貼る）
+# ==========================
+def paste_overlay_rect(base: Image.Image, overlay_path: str, x: int, y: int, w: int, h: int):
+    """
+    overlay画像を指定矩形(x,y,w,h)へリサイズしてRGBA合成で貼る
+    """
+    if not os.path.exists(overlay_path):
+        print(f"[WARN] overlay not found: {overlay_path}")
+        return
+
+    try:
+        ov = Image.open(overlay_path).convert("RGBA")
+        ov = ov.resize((int(w), int(h)))
+        # baseはRGBでもOK。maskにov自身(α)を渡して合成
+        base.paste(ov, (int(x), int(y)), ov)
+    except Exception as e:
+        print(f"[WARN] overlay paste failed: {overlay_path} err={e}")
 
 # ==========================
 # ★ フェスオーバーレイ適用
 # ==========================
-def apply_fest_overlays(base, is_fest_active):
+def apply_fest_overlays(base, fest_slots):
     """
-    フェス開催中の場合、通常テンプレートの上にフェス用オーバーレイを重ねる
-    - now用: fest/now_fest.png
-    - next1~4用: fest/next_fest.png
+    フェス枠のスロットだけオーバーレイを貼る
+    - now:  x20 y10  w920 h310
+    - next: x20 y320 w920 h80
+    - next2:x20 y400 w920 h80
+    - next3:x20 y480 w920 h80
+    - next4:x20 y560 w920 h80
     """
-    if not is_fest_active:
+    if not fest_slots or not any(fest_slots.values()):
         return
-    
-    # nowオーバーレイ
-    if os.path.exists(FEST_NOW_OVERLAY):
-        try:
-            now_overlay = Image.open(FEST_NOW_OVERLAY).convert("RGBA")
-            base.paste(now_overlay, (0, 0), now_overlay)
 
-            print(f"[INFO] フェスnowオーバーレイを適用: {FEST_NOW_OVERLAY}")
-        except Exception as e:
-            print(f"[WARN] nowオーバーレイ適用失敗: {e}")
-    else:
-        print(f"[WARN] nowオーバーレイが見つかりません: {FEST_NOW_OVERLAY}")
-    
-    # next1~4オーバーレイ
-    if os.path.exists(FEST_NEXT_OVERLAY):
-        try:
-            next_overlay = Image.open(FEST_NEXT_OVERLAY).convert("RGBA")
-            base.paste(next_overlay, (0, 0), next_overlay)
-            print(f"[INFO] フェスnextオーバーレイを適用: {FEST_NEXT_OVERLAY}")
-        except Exception as e:
-            print(f"[WARN] nextオーバーレイ適用失敗: {e}")
-    else:
-        print(f"[WARN] nextオーバーレイが見つかりません: {FEST_NEXT_OVERLAY}")
+    # now
+    if fest_slots.get("now"):
+        paste_overlay_rect(base, FEST_NOW_OVERLAY, 20, 10, 920, 310)
+        print(f"[INFO] フェスnowオーバーレイ適用: {FEST_NOW_OVERLAY}")
+
+    # next1~4
+    next_rects = {
+        "next":  (20, 320, 920, 80),
+        "next2": (20, 400, 920, 80),
+        "next3": (20, 480, 920, 80),
+        "next4": (20, 560, 920, 80),
+    }
+
+    for slot, (x, y, w, h) in next_rects.items():
+        if fest_slots.get(slot):
+            paste_overlay_rect(base, FEST_NEXT_OVERLAY, x, y, w, h)
+            print(f"[INFO] フェス{slot}オーバーレイ適用: {FEST_NEXT_OVERLAY}")
+
 
 
 # ==========================
@@ -777,37 +797,49 @@ def main():
     print(f"[INFO] ベーステンプレートを使用: {TEMPLATE_PATH}")
     base = Image.open(TEMPLATE_PATH).convert("RGB")
 
+        # フェス枠（now/next1~4）判定
+    fest_slots = check_fest_slots()
+
     try:
-        # レギュラーは常に通常API
-        render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), is_fest_active)
+        # regular は常に通常
+        render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), fest_slots=None)
 
-        # フェス時は専用API、通常時は通常API
-        if is_fest_active:
-            render_versus_mode(base, "open", fetch_schedule(API_URLS["fest_open"]), is_fest_active)
-            render_versus_mode(base, "challenge", fetch_schedule(API_URLS["fest_challenge"]), is_fest_active)
-        else:
-            render_versus_mode(base, "open", fetch_schedule(API_URLS["open"]), is_fest_active)
-            render_versus_mode(base, "challenge", fetch_schedule(API_URLS["challenge"]), is_fest_active)
+        # open/challenge は「スロット別に」フェスAPI or 通常API を合成して描画
+        open_normal = fetch_schedule(API_URLS["open"])
+        open_fest   = fetch_schedule(API_URLS["fest_open"])
 
-        # Xマッチ（フェス中は停止するので描画しない）
-        if not is_fest_active:
-            render_versus_mode(
-                base,
-                "xmatch",
-                fetch_schedule(API_URLS["xmatch"]),
-                is_fest_active
-            )
-        else:
-            print("[INFO] フェス中のため Xマッチ描画をスキップ")
+        chal_normal = fetch_schedule(API_URLS["challenge"])
+        chal_fest   = fetch_schedule(API_URLS["fest_challenge"])
 
-        # サーモンは常に通常API
+        def merge_by_fest_slot(normal_results, fest_results, fest_slots):
+            merged = []
+            for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
+                if fest_slots.get(slot) and idx < len(fest_results):
+                    merged.append(fest_results[idx])
+                elif idx < len(normal_results):
+                    merged.append(normal_results[idx])
+                elif idx < len(fest_results):
+                    merged.append(fest_results[idx])
+                else:
+                    merged.append({})
+            return merged
+
+        open_merged = merge_by_fest_slot(open_normal, open_fest, fest_slots)
+        chal_merged = merge_by_fest_slot(chal_normal, chal_fest, fest_slots)
+
+        render_versus_mode(base, "open", open_merged, fest_slots=fest_slots)
+        render_versus_mode(base, "challenge", chal_merged, fest_slots=fest_slots)
+
+        # xmatch / salmon は通常（xmatchはフェス期間中stages=Noneになりやすいので勝手にスキップされる）
+        render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
 
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
 
-    # フェス時はオーバーレイを適用
-    apply_fest_overlays(base, is_fest_active)
+    # ★フェス枠だけオーバーレイ
+    apply_fest_overlays(base, fest_slots)
+
 
     # JSON出力
     schedule_json_path = os.getenv("SCHEDULE_JSON", "/tmp/schedule.json")
@@ -858,6 +890,7 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 
 
 
