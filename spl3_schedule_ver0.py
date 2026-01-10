@@ -510,15 +510,29 @@ def draw_salmon_weapons(base, slot, weapons):
 # ★ API 共通
 # ==========================
 def fetch_schedule(url):
-    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
-    resp.raise_for_status()
-    return resp.json()["results"]
+    try:
+        resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+        if results is None:
+            return []
+        return results
+    except Exception as e:
+        print(f"[ERR] fetch_schedule failed for {url}: {e}")
+        return []
 
 def fetch_now(url):
-    resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
-    resp.raise_for_status()
-    data = resp.json()
-    return (data.get("results") or [{}])[0]
+    try:
+        resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        results = data.get("results")
+        if not results:
+            return {}
+        return results[0] if isinstance(results, list) else results
+    except Exception as e:
+        print(f"[ERR] fetch_now failed for {url}: {e}")
+        return {}
 
 
 # ==========================
@@ -736,3 +750,4 @@ def main():
 if __name__ == "__main__":
     main()
         
+
