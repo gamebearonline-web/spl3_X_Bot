@@ -729,10 +729,10 @@ def apply_fest_overlays(base, fest_slots):
 
     # next1~4
     next_rects = {
-        "next":  (20, 320, 920, 80),
-        "next2": (20, 400, 920, 80),
-        "next3": (20, 480, 920, 80),
-        "next4": (20, 560, 920, 80),
+        "next":  (20, 320, 928, 311),
+        "next2": (20, 400, 928, 104),
+        "next3": (20, 480, 928, 104),
+        "next4": (20, 560, 928, 104),
     }
 
     for slot, (x, y, w, h) in next_rects.items():
@@ -859,5 +859,6 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     main()
+
 
 
