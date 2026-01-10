@@ -24,7 +24,8 @@ def load_schedule_json(path: str):
 def build_tweet_text(now_jst: datetime) -> str:
     schedule_json_path = os.getenv("SCHEDULE_JSON", "post-image/schedule.json")
     s = load_schedule_json(schedule_json_path)
-    
+
+    # updatedHour があればそれを使う（従来通り）
     if isinstance(s, dict) and "updatedHour" in s:
         try:
             hour = int(s.get("updatedHour"))
@@ -32,18 +33,37 @@ def build_tweet_text(now_jst: datetime) -> str:
             hour = now_jst.hour
     else:
         hour = now_jst.hour
+
     time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
-    
+
     if isinstance(s, dict):
-        regular = safe_join(s.get("regularStages", []) or [])
+        # ✅ フェス判定（schedule.json の isFestActive を見る）
+        is_fest = bool(s.get("isFestActive"))
+
         open_rule = s.get("openRule", "不明")
         open_stages = safe_join(s.get("openStages", []) or [])
         chal_rule = s.get("challengeRule", "不明")
         chal_stages = safe_join(s.get("challengeStages", []) or [])
+
+        # ✅ フェス時：指定フォーマット
+        if is_fest:
+            # トリカラ情報：schedule.json に無ければ空（後で生成側で追加可能）
+            tricolor = safe_join(s.get("tricolorStages", []) or [])
+            return (
+                "【スプラ3】スケジュール更新！\n"
+                f"{time_str}\n"
+                "【フェス開催中】\n"
+                f"🥳オープン：{open_rule}：{open_stages}\n"
+                f"🥳チャレンジ：{chal_rule}：{chal_stages}\n"
+                f"🎆トリカラ：{tricolor}"
+            )
+
+        # ✅ 通常時：従来通り
+        regular = safe_join(s.get("regularStages", []) or [])
         x_rule = s.get("xRule", "不明")
         x_stages = safe_join(s.get("xStages", []) or [])
         salmon_stage = s.get("salmonStage", "不明")
-        
+
         return (
             "【スプラ3】スケジュール更新！\n"
             f"{time_str}\n"
@@ -53,12 +73,14 @@ def build_tweet_text(now_jst: datetime) -> str:
             f"🟢Xマッチ：{x_rule}：{x_stages}\n"
             f"🔶サーモンラン：{salmon_stage}"
         )
-    
+
+    # schedule.json が無い/壊れている場合の保険
     return (
         "【スプラ3】スケジュール更新！\n"
         f"{time_str}\n"
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
+
 
 def print_forbidden_details(e: Exception):
     print("[ERROR] Forbidden:", repr(e))
