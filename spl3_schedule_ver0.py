@@ -534,27 +534,36 @@ def draw_salmon_weapons(base, slot, weapons):
 # ==========================
 def fetch_schedule(url):
     try:
+        print(f"[DEBUG] Fetching: {url}")
         resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
         resp.raise_for_status()
-        results = resp.json().get("results", [])
+        data = resp.json()
+        results = data.get("results", [])
+        print(f"[DEBUG] {url} returned {len(results) if results else 0} results")
         if results is None:
             return []
         return results
     except Exception as e:
         print(f"[ERR] fetch_schedule failed for {url}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def fetch_now(url):
     try:
+        print(f"[DEBUG] Fetching now: {url}")
         resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         results = data.get("results")
+        print(f"[DEBUG] {url} returned: {type(results)}")
         if not results:
             return {}
         return results[0] if isinstance(results, list) else results
     except Exception as e:
         print(f"[ERR] fetch_now failed for {url}: {e}")
+        import traceback
+        traceback.print_exc()
         return {}
 
 
@@ -562,8 +571,15 @@ def fetch_now(url):
 # ★ バトル（regular / open / challenge / xmatch）
 # ==========================
 def render_versus_mode(base, mode, results, is_fest_active=False):
+    print(f"[DEBUG] render_versus_mode: mode={mode}, results count={len(results) if results else 0}")
+    
+    if not results:
+        print(f"[WARN] {mode} has no results")
+        return
+    
     coords_mode = COORDS_TABLE[mode]
     draw = ImageDraw.Draw(base)
+    # ... 残りのコード
 
     for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
         if slot not in coords_mode or idx >= len(results):
@@ -623,7 +639,14 @@ def render_versus_mode(base, mode, results, is_fest_active=False):
 # ★ サーモンラン
 # ==========================
 def render_salmon_mode(base, results):
+    print(f"[DEBUG] render_salmon_mode: results count={len(results) if results else 0}")
+    
+    if not results:
+        print(f"[WARN] salmon has no results")
+        return
+    
     coords_mode = COORDS_TABLE["salmon"]
+    # ... 残りのコード
     draw = ImageDraw.Draw(base)
     color = MODE_COLORS["salmon"]
 
@@ -788,6 +811,7 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 
 
 
