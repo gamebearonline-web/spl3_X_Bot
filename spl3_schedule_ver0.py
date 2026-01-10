@@ -742,7 +742,10 @@ def apply_fest_overlays(base, fest_slots):
 
 
 # ==========================
-# ★ メイン
+# ★ メイン（レイヤー順序 修正版）
+#   最下層：通常テンプレ
+#   次：フェステンプレ（オーバーレイ）
+#   最上層：API出力結果
 # ==========================
 def main():
     global OUTPUT_PATH
@@ -765,7 +768,9 @@ def main():
     # ✅ フェス枠（now/next/next2/next3/next4）をスロット別に判定
     fest_slots = check_fest_slots()  # {"now":bool, "next":bool, ...}
 
-    # スロット別に「通常/フェス API」を合成するため、必要な schedule を取得
+    # ✅ ここで先にフェスオーバーレイを貼る（＝フェステンプレを下地にする）
+    apply_fest_overlays(base, fest_slots)
+
     try:
         # regular は常に通常
         render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), fest_slots=None)
@@ -795,19 +800,15 @@ def main():
         render_versus_mode(base, "open", open_merged, fest_slots=fest_slots)
         render_versus_mode(base, "challenge", chal_merged, fest_slots=fest_slots)
 
-        # xmatch / salmon は通常（フェス中xmatchはstages=Noneで勝手にスキップされる）
+        # xmatch / salmon は通常
         render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
 
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
 
-    # ✅ フェス枠だけオーバーレイ（指定座標に貼る）
-    apply_fest_overlays(base, fest_slots)
-
     # ==========================
     # ✅ JSON出力（nowスロットの情報を優先）
-    #   ※ スロット別判定に合わせるため、nowがフェスなら fest_now を使う
     # ==========================
     schedule_json_path = os.getenv("SCHEDULE_JSON", "/tmp/schedule.json")
 
@@ -820,18 +821,13 @@ def main():
         chal_now = fetch_now(API_NOW_URLS["challenge"])
 
     reg_now = fetch_now(API_NOW_URLS["regular"])
-
-    # xmatch はフェス枠中に空になりがちなので、nowがフェスなら空で安全に
     x_now = {} if fest_slots.get("now") else fetch_now(API_NOW_URLS["xmatch"])
-
     coop_now = fetch_now(API_NOW_URLS["salmon"])
 
     payload = {
         "updatedHour": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).hour,
-
-        # ✅ 「全体フェス」ではなく「nowがフェスか」を入れる（必要なら keys 全部も入れられる）
         "isFestActive": bool(fest_slots.get("now")),
-        "festSlots": fest_slots,  # ← これを入れておくと後で便利（不要なら消してOK）
+        "festSlots": fest_slots,
 
         "regularStages": [s.get("name") for s in (reg_now.get("stages") or [])][:2],
 
@@ -861,19 +857,7 @@ if __name__ == "__main__":
 
 
 
-
 if __name__ == "__main__":
     main()
-        
-
-
-
-
-
-
-
-
-
-
 
 
