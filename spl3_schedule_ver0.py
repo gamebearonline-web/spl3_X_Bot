@@ -70,28 +70,32 @@ def fetch_image(url):
 # ==========================
 # ★ フェス開催中判定（グローバル）
 # ==========================
-def check_fest_status():
+def check_fest_status() -> bool:
     """
-    フェス専用APIを確認し、フェス開催中かどうかを判定
+    フェス開催中か判定
+    - /api/fest/now の results が空でなければ True
     """
     try:
         resp = session.get(
             "https://spla3.yuu26.com/api/fest/now",
             headers={"User-Agent": "Spla3StageBot/1.0"},
-            timeout=10
+            timeout=10,
         )
         resp.raise_for_status()
         data = resp.json()
-        
+
         results = data.get("results")
         if results:
-            print("[INFO] フェス開催中: fest API returned data")
+            print("[INFO] フェス開催中: fest/now returned results")
             return True
-            
+
+        print("[INFO] フェス未開催: fest/now results empty")
+        return False
+
     except Exception as e:
-        print(f"[INFO] フェス未開催: {e}")
-    
-    return False
+        print(f"[WARN] フェス判定エラー: {e}")
+        return False
+
         
           
         # 複数のフェスフラグをチェック
@@ -603,7 +607,7 @@ def render_versus_mode(base, mode, results, is_fest_active=False):
         is_now_slot = start <= now < end
 
         # フェス色判定（nowスロット かつ グローバルフェスフラグ）
-        use_fest_color = is_now_slot and is_fest_active
+        use_fest_color = is_fest_active
 
         # 背景色決定
         if use_fest_color and mode in FEST_TEXT_BG:
@@ -714,8 +718,9 @@ def apply_fest_overlays(base, is_fest_active):
     # nowオーバーレイ
     if os.path.exists(FEST_NOW_OVERLAY):
         try:
-            now_overlay = Image.open(FEST_NOW_OVERLAY).convert("RGB")
-            base.paste(now_overlay, (0, 0))
+            now_overlay = Image.open(FEST_NOW_OVERLAY).convert("RGBA")
+            base.paste(now_overlay, (0, 0), now_overlay)
+
             print(f"[INFO] フェスnowオーバーレイを適用: {FEST_NOW_OVERLAY}")
         except Exception as e:
             print(f"[WARN] nowオーバーレイ適用失敗: {e}")
@@ -725,8 +730,8 @@ def apply_fest_overlays(base, is_fest_active):
     # next1~4オーバーレイ
     if os.path.exists(FEST_NEXT_OVERLAY):
         try:
-            next_overlay = Image.open(FEST_NEXT_OVERLAY).convert("RGB")
-            base.paste(next_overlay, (0, 0))
+            next_overlay = Image.open(FEST_NEXT_OVERLAY).convert("RGBA")
+            base.paste(next_overlay, (0, 0), next_overlay)
             print(f"[INFO] フェスnextオーバーレイを適用: {FEST_NEXT_OVERLAY}")
         except Exception as e:
             print(f"[WARN] nextオーバーレイ適用失敗: {e}")
@@ -771,7 +776,7 @@ def main():
             render_versus_mode(base, "challenge", fetch_schedule(API_URLS["challenge"]), is_fest_active)
         
         # Xマッチとサーモンは常に通常API
-        render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), is_fest_active)
+        if not is_fest_active:     render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), is_fest_active) else:     print("[INFO] フェス中のため Xマッチ描画をスキップ")
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
@@ -819,6 +824,7 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 
 
 
