@@ -39,11 +39,29 @@ def build_post_text(now_jst: datetime) -> str:
     time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
 
     if isinstance(s, dict):
-        regular = safe_join(s.get("regularStages", []) or [])
+        # フェス判定（schedule.json の isFestActive を見る）
+        is_fest = bool(s.get("isFestActive"))
+
         open_rule = s.get("openRule", "不明")
         open_stages = safe_join(s.get("openStages", []) or [])
         chal_rule = s.get("challengeRule", "不明")
         chal_stages = safe_join(s.get("challengeStages", []) or [])
+
+        # ✅ フェス時：指定フォーマット
+        if is_fest:
+            # トリカラ枠：schedule.jsonに無ければ空（後で追加可能）
+            tricolor = safe_join(s.get("tricolorStages", []) or [])
+            return (
+                "【スプラ3】スケジュール更新！\n"
+                f"{time_str}\n"
+                "【フェス開催中】\n"
+                f"🥳オープン：{open_rule}：{open_stages}\n"
+                f"🥳チャレンジ：{chal_rule}：{chal_stages}\n"
+                f"🎆トリカラ：{tricolor}"
+            )
+
+        # ✅ 通常時：これまで通り
+        regular = safe_join(s.get("regularStages", []) or [])
         x_rule = s.get("xRule", "不明")
         x_stages = safe_join(s.get("xStages", []) or [])
         salmon_stage = s.get("salmonStage", "不明")
@@ -64,6 +82,7 @@ def build_post_text(now_jst: datetime) -> str:
         f"{time_str}\n"
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
+
 
 
 def bluesky_request(url, method="POST", headers=None, json=None, data=None):
