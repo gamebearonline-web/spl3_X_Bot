@@ -93,8 +93,7 @@ def check_fest_status():
     
     return False
         
-        now_data = results[0] if isinstance(results, list) else results
-        
+          
         # 複数のフェスフラグをチェック
         if now_data.get("festMode"):
             print("[INFO] フェス開催中: festMode=True")
@@ -820,6 +819,7 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 
 
 
