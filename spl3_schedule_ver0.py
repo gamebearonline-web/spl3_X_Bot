@@ -7,6 +7,29 @@ import os
 import json
 
 # ==========================
+# ★ API URL
+# ==========================
+API_URLS = {
+    "regular": "https://spla3.yuu26.com/api/regular/schedule",
+    "open": "https://spla3.yuu26.com/api/bankara-open/schedule",
+    "challenge": "https://spla3.yuu26.com/api/bankara-challenge/schedule",
+    "xmatch": "https://spla3.yuu26.com/api/x/schedule",
+    "salmon": "https://spla3.yuu26.com/api/coop-grouping/schedule",
+    "fest_open": "https://spla3.yuu26.com/api/fest/schedule",
+    "fest_challenge": "https://spla3.yuu26.com/api/fest-challenge/schedule",
+}
+
+API_NOW_URLS = {
+    "regular": "https://spla3.yuu26.com/api/regular/now",
+    "open": "https://spla3.yuu26.com/api/bankara-open/now",
+    "challenge": "https://spla3.yuu26.com/api/bankara-challenge/now",
+    "xmatch": "https://spla3.yuu26.com/api/x/now",
+    "salmon": "https://spla3.yuu26.com/api/coop-grouping/now",
+    "fest_open": "https://spla3.yuu26.com/api/fest/now",
+    "fest_challenge": "https://spla3.yuu26.com/api/fest-challenge/now",
+}
+
+# ==========================
 # ★ 引数 --output 対応
 # ==========================
 def parse_args():
@@ -684,32 +707,31 @@ def apply_fest_overlays(base, is_fest_active):
 # ★ メイン
 # ==========================
 def main():
-    global OUTPUT_PATH
-
-    args = parse_args()
-    OUTPUT_PATH = args.output
-
-    out_dir = os.path.dirname(OUTPUT_PATH)
-    if out_dir and not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
-
+    # ... (既存のコード)
+    
     # フェス判定
     is_fest_active = check_fest_status()
     
-    # 通常テンプレートをベースに使用
-    if not os.path.exists(TEMPLATE_PATH):
-        print(f"[ERROR] テンプレートが見つかりません: {TEMPLATE_PATH}")
-        return
+    # ... (テンプレート読み込み)
     
-    print(f"[INFO] ベーステンプレートを使用: {TEMPLATE_PATH}")
-    base = Image.open(TEMPLATE_PATH).convert("RGBA")
-
     try:
-        render_versus_mode(base, "regular", fetch_schedule("https://spla3.yuu26.com/api/regular/schedule"), is_fest_active)
-        render_versus_mode(base, "open", fetch_schedule("https://spla3.yuu26.com/api/bankara-open/schedule"), is_fest_active)
-        render_versus_mode(base, "challenge", fetch_schedule("https://spla3.yuu26.com/api/bankara-challenge/schedule"), is_fest_active)
-        render_versus_mode(base, "xmatch", fetch_schedule("https://spla3.yuu26.com/api/x/schedule"), is_fest_active)
-        render_salmon_mode(base, fetch_schedule("https://spla3.yuu26.com/api/coop-grouping/schedule"))
+        render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), is_fest_active)
+        
+        # フェス時は専用API、通常時は通常API
+        # JSON出力
+         if is_fest_active:
+           open_now = fetch_now(API_NOW_URLS["fest_open"])
+           chal_now = fetch_now(API_NOW_URLS["fest_challenge"])
+        else:
+           open_now = fetch_now(API_NOW_URLS["open"])
+           chal_now = fetch_now(API_NOW_URLS["challenge"])
+    
+           reg_now = fetch_now(API_NOW_URLS["regular"])
+           x_now = fetch_now(API_NOW_URLS["xmatch"])
+           coop_now = fetch_now(API_NOW_URLS["salmon"])
+        
+        render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), is_fest_active)
+        render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
 
@@ -750,4 +772,5 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 
