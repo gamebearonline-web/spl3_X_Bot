@@ -713,11 +713,11 @@ def paste_overlay_rect(base: Image.Image, overlay_path: str, x: int, y: int, w: 
 def apply_fest_overlays(base, fest_slots):
     """
     フェス枠のスロットだけオーバーレイを貼る
-    - now:  x20 y10  w928 h311
-    - next: x20 y320 w928 h104
-    - next2:x20 y400 w928 h104
-    - next3:x20 y480 w928 h104
-    - next4:x20 y560 w928 h104
+    - now:  x20 y10  w920 h311
+    - next: x20 y320 w920 h81
+    - next2:x20 y400 w920 h81
+    - next3:x20 y480 w920 h81
+    - next4:x20 y560 w920 h81
     """
     if not fest_slots or not any(fest_slots.values()):
         return
@@ -729,10 +729,10 @@ def apply_fest_overlays(base, fest_slots):
 
     # next1~4
     next_rects = {
-        "next":  (20, 320, 928, 311),
-        "next2": (20, 400, 928, 104),
-        "next3": (20, 480, 928, 104),
-        "next4": (20, 560, 928, 104),
+        "next":  (20, 320, 920, 311),
+        "next2": (20, 400, 920, 81),
+        "next3": (20, 480, 920, 81),
+        "next4": (20, 560, 920, 81),
     }
 
     for slot, (x, y, w, h) in next_rects.items():
@@ -859,6 +859,7 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     main()
+
 
 
 
