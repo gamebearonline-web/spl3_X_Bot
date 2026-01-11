@@ -631,6 +631,71 @@ def render_versus_mode(base, mode, results, fest_slots=None):
         rule_key = info.get("rule", {}).get("key")
         draw_rule_icon(base, mode, slot, rule_key)
 
+def render_tricolor_in_xmatch(base, fest_results):
+    """
+    フェスAPIの results を使って、トリカラ枠だけ Xマッチ欄(coords_xmatch)に描画する
+    fest_results[idx] の
+      - is_tricolor == True
+      - tricolor_stages がある
+    ときだけ描く
+    """
+    if not fest_results:
+        print("[WARN] fest_results is empty (tricolor)")
+        return
+
+    coords_mode = COORDS_TABLE["xmatch"]   # ←X欄に描く
+    draw = ImageDraw.Draw(base)
+
+    for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
+        if slot not in coords_mode or idx >= len(fest_results):
+            continue
+
+        info = fest_results[idx]
+        if not info:
+            continue
+
+        # トリカラ開催枠だけ
+        if not info.get("is_tricolor"):
+            continue
+
+        tri_stages = info.get("tricolor_stages")
+        if not tri_stages:
+            continue
+
+        cslot = coords_mode[slot]
+
+        # 背景色：フェス用（あなたの定義を流用）
+        bg_color = FEST_TEXT_BG["xmatch"]  # (102, 77, 222)
+
+        # フォント
+        font_time  = FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL
+        font_stage = FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL
+
+        # 時刻表示（start_time座標を流用）
+        if "start_time" in cslot and info.get("start_time") and info.get("end_time"):
+            start = datetime.datetime.fromisoformat(info["start_time"].replace("Z", "+00:00"))
+            end   = datetime.datetime.fromisoformat(info["end_time"].replace("Z", "+00:00"))
+            time_text = f"{start.strftime('%H:%M')}~{end.strftime('%H:%M')}"
+            draw_text_with_bg(draw, cslot["start_time"], time_text, font_time, bg_fill=bg_color)
+
+        # ステージ描画（X欄の stage0/stage1 を使う。トリカラは複数あり得るので先頭2つ）
+        for i in (0, 1):
+            if i >= len(tri_stages):
+                continue
+            stg = tri_stages[i]
+
+            if f"stage{i}_image" in cslot:
+                ix, iy, iw, ih = cslot[f"stage{i}_image"]
+                try:
+                    img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
+                    base.paste(img, (int(ix), int(iy)))
+                except Exception as e:
+                    print(f"[WARN] tricolor stage image failed slot={slot} i={i}: {e}")
+
+            if f"stage{i}_name" in cslot:
+                draw_text_with_bg(draw, cslot[f"stage{i}_name"], stg["name"], font_stage, bg_fill=bg_color)
+
+        # ルールアイコンは「トリカラ専用キー」が無い/不明なことが多いので、ここでは描かない（必要なら後で対応）
 
 
 # ==========================
@@ -800,9 +865,17 @@ def main():
         render_versus_mode(base, "open", open_merged, fest_slots=fest_slots)
         render_versus_mode(base, "challenge", chal_merged, fest_slots=fest_slots)
 
-        # xmatch / salmon は通常
-        render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
+        # xmatch / salmon
+        if fest_slots.get("now"):
+          # フェス中：X欄に「トリカラ開催枠だけ」描く
+          fest_for_tricolor = fetch_schedule(API_URLS["fest_open"])  # festでもopen側に入っている
+          render_tricolor_in_xmatch(base, fest_for_tricolor)
+        else:
+          # 通常時：従来どおりXマッチ
+          render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
+
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
+
 
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
@@ -821,7 +894,22 @@ def main():
         chal_now = fetch_now(API_NOW_URLS["challenge"])
 
     reg_now = fetch_now(API_NOW_URLS["regular"])
-    x_now = {} if fest_slots.get("now") else fetch_now(API_NOW_URLS["xmatch"])
+    
+    # フェス中でも「now がトリカラ」なら X枠として出す
+    if fest_slots.get("now"):
+        fest_open_now = fetch_now(API_NOW_URLS["fest_open"])
+        if fest_open_now.get("is_tricolor") and fest_open_now.get("tricolor_stages"):
+           x_rule_name = "トリカラマッチ"
+           x_stages_list = [s.get("name") for s in (fest_open_now.get("tricolor_stages") or [])][:2]
+        else:
+           x_rule_name = "-"
+           x_stages_list = []
+    else:
+       x_now = fetch_now(API_NOW_URLS["xmatch"])
+       x_rule_name = (x_now.get("rule") or {}).get("name", "不明")
+       x_stages_list = [s.get("name") for s in (x_now.get("stages") or [])][:2]
+
+
     coop_now = fetch_now(API_NOW_URLS["salmon"])
 
     payload = {
@@ -837,8 +925,8 @@ def main():
         "challengeRule": (chal_now.get("rule") or {}).get("name", "不明"),
         "challengeStages": [s.get("name") for s in (chal_now.get("stages") or [])][:2],
 
-        "xRule": (x_now.get("rule") or {}).get("name", "不明"),
-        "xStages": [s.get("name") for s in (x_now.get("stages") or [])][:2],
+        "xRule": x_rule_name,
+        "xStages": x_stages_list,
 
         "salmonStage": (coop_now.get("stage") or {}).get("name", "不明"),
         "salmonWeapons": [w.get("name") for w in (coop_now.get("weapons") or [])][:4],
@@ -854,15 +942,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-if __name__ == "__main__":
-    main()
-
-
-
-
 
 
 
