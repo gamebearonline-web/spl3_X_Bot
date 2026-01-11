@@ -37,26 +37,33 @@ def build_tweet_text(now_jst: datetime) -> str:
     time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
 
     if isinstance(s, dict):
-        # ✅ フェス判定（schedule.json の isFestActive を見る）
-        is_fest = bool(s.get("isFestActive"))
-
-        open_rule = s.get("openRule", "不明")
-        open_stages = safe_join(s.get("openStages", []) or [])
-        chal_rule = s.get("challengeRule", "不明")
-        chal_stages = safe_join(s.get("challengeStages", []) or [])
-
         # ✅ フェス時：指定フォーマット
         if is_fest:
-            # トリカラ情報：schedule.json に無ければ空（後で生成側で追加可能）
-            tricolor = safe_join(s.get("tricolorStages", []) or [])
+            # ★トリカラは schedule.json の xRule/xStages を優先して拾う（生成側がX欄に入れる仕様に対応）
+            x_rule = s.get("xRule", "")
+            x_stages = s.get("xStages", []) or []
+
+            # 旧仕様（tricolorStages）も保険で拾う
+            legacy_tri = s.get("tricolorStages", []) or []
+
+            # トリカラ判定：xRule がトリカラ、または legacy がある場合
+            if (isinstance(x_rule, str) and "トリカラ" in x_rule) and x_stages:
+                tricolor = safe_join(x_stages)
+            else:
+                tricolor = safe_join(legacy_tri)
+
+            # 空のときの表示（好みで変更可）
+            tri_line = f"🎆トリカラ：{tricolor}" if tricolor else "🎆トリカラ：-"
+
             return (
                 "【スプラ3】スケジュール更新！\n"
                 f"{time_str}\n"
                 "【フェス開催中】\n"
-                f"🥳オープン：{open_rule}：{open_stages}\n"
-                f"🥳チャレンジ：{chal_rule}：{chal_stages}\n"
-                f"🎆トリカラ：{tricolor}"
+                f"🥳オープン：{open_stages}\n"
+                f"🥳チャレンジ：{chal_stages}\n"
+                f"{tri_line}"
             )
+
 
         # ✅ 通常時：従来通り
         regular = safe_join(s.get("regularStages", []) or [])
