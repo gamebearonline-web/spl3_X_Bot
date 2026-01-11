@@ -39,6 +39,9 @@ def build_post_text(now_jst: datetime) -> str:
     time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
 
     if isinstance(s, dict):
+        # ✅ フェス判定（schedule.json の isFestActive）
+        is_fest = bool(s.get("isFestActive"))
+
         # 共通で使う値
         open_rule = s.get("openRule", "不明")
         open_stages = safe_join(s.get("openStages", []) or [])
@@ -72,11 +75,10 @@ def build_post_text(now_jst: datetime) -> str:
                 f"{tri_line}"
             )
 
-
         # ✅ 通常時：これまでのフォーマット
         regular = safe_join(s.get("regularStages", []) or [])
-        x_rule = s.get("xRule", "不明")
-        x_stages = safe_join(s.get("xStages", []) or [])
+        x_rule_normal = s.get("xRule", "不明")
+        x_stages_normal = safe_join(s.get("xStages", []) or [])
         salmon_stage = s.get("salmonStage", "不明")
 
         return (
@@ -85,7 +87,7 @@ def build_post_text(now_jst: datetime) -> str:
             f"🟡レギュラー：{regular}\n"
             f"🟠オープン：{open_rule}：{open_stages}\n"
             f"🟠チャレンジ：{chal_rule}：{chal_stages}\n"
-            f"🟢Xマッチ：{x_rule}：{x_stages}\n"
+            f"🟢Xマッチ：{x_rule_normal}：{x_stages_normal}\n"
             f"🔶サーモンラン：{salmon_stage}"
         )
 
@@ -95,7 +97,6 @@ def build_post_text(now_jst: datetime) -> str:
         f"{time_str}\n"
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
-
 
 
 def misskey_request(url, method="POST", headers=None, data=None, files=None, json=None):
