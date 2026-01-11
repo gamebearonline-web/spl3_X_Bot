@@ -39,6 +39,15 @@ def build_post_text(now_jst: datetime) -> str:
     time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
 
     if isinstance(s, dict):
+        # ✅ フェス判定（schedule.json の isFestActive）
+        is_fest = bool(s.get("isFestActive"))
+
+        # 共通で使う値
+        open_rule = s.get("openRule", "不明")
+        open_stages = safe_join(s.get("openStages", []) or [])
+        chal_rule = s.get("challengeRule", "不明")
+        chal_stages = safe_join(s.get("challengeStages", []) or [])
+
         # ✅ フェス時：指定フォーマット
         if is_fest:
             # ★トリカラは schedule.json の xRule/xStages を優先して拾う（生成側がX欄に入れる仕様に対応）
@@ -66,11 +75,10 @@ def build_post_text(now_jst: datetime) -> str:
                 f"{tri_line}"
             )
 
-
         # ✅ 通常時：これまで通り
         regular = safe_join(s.get("regularStages", []) or [])
-        x_rule = s.get("xRule", "不明")
-        x_stages = safe_join(s.get("xStages", []) or [])
+        x_rule_normal = s.get("xRule", "不明")
+        x_stages_normal = safe_join(s.get("xStages", []) or [])
         salmon_stage = s.get("salmonStage", "不明")
 
         return (
@@ -79,7 +87,7 @@ def build_post_text(now_jst: datetime) -> str:
             f"🟡レギュラー：{regular}\n"
             f"🟠オープン：{open_rule}：{open_stages}\n"
             f"🟠チャレンジ：{chal_rule}：{chal_stages}\n"
-            f"🟢Xマッチ：{x_rule}：{x_stages}\n"
+            f"🟢Xマッチ：{x_rule_normal}：{x_stages_normal}\n"
             f"🔶サーモンラン：{salmon_stage}"
         )
 
@@ -89,7 +97,6 @@ def build_post_text(now_jst: datetime) -> str:
         f"{time_str}\n"
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
-
 
 
 def bluesky_request(url, method="POST", headers=None, json=None, data=None):
@@ -107,7 +114,8 @@ def bluesky_request(url, method="POST", headers=None, json=None, data=None):
             print(res.text)
             sys.exit(1)
 
-        return res.json()
+        # uploadBlob は JSON を返すが、稀に空になるケースもあるので保険
+        return res.json() if res.text else {}
 
     except Exception as e:
         print(f"[ERROR] Bluesky request 失敗: {url} → {repr(e)}")
@@ -129,13 +137,19 @@ def post_to_bluesky(image_path, text):
         json={"identifier": HANDLE, "password": PASSWORD}
     )
 
-    access_jwt = session["accessJwt"]
-    did = session["did"]
+    access_jwt = session.get("accessJwt")
+    did = session.get("did")
+
+    if not access_jwt or not did:
+        print("[ERROR] Bluesky ログイン応答が不正です")
+        print(session)
+        sys.exit(1)
+
     print(f"[INFO] ログイン成功: DID = {did}")
 
     # ===== ② 画像アップロード =====
     blob = None
-    if os.path.exists(image_path):
+    if image_path and os.path.exists(image_path):
         print(f"[INFO] 画像アップロード中 → {image_path}")
         with open(image_path, "rb") as f:
             img_bytes = f.read()
@@ -148,8 +162,12 @@ def post_to_bluesky(image_path, text):
             },
             data=img_bytes
         )
-        blob = upload_res["blob"]
-        print("[INFO] 画像アップロード成功")
+
+        blob = upload_res.get("blob")
+        if blob:
+            print("[INFO] 画像アップロード成功")
+        else:
+            print("[WARN] 画像アップロード応答に blob がありません（画像なし投稿で続行）")
     else:
         print(f"[WARN] 画像が見つかりません → {image_path}")
 
