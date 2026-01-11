@@ -558,6 +558,40 @@ def fetch_now(url):
         traceback.print_exc()
         return {}
 
+def build_timeline_from_regular(regular_results):
+    """
+    regular の now〜next4 の (start_time, end_time) を基準タイムラインとして返す
+    """
+    timeline = []
+    for i in range(5):
+        if i >= len(regular_results):
+            timeline.append((None, None))
+            continue
+        info = regular_results[i] or {}
+        timeline.append((info.get("start_time"), info.get("end_time")))
+    return timeline
+
+
+def align_results_to_timeline(results, timeline):
+    """
+    results の中から timeline[i] の start/end に一致する枠を探して i に配置する。
+    見つからなければ空 dict を入れる（＝描画はされないが 17:00 に飛ばない）。
+    """
+    # start_time で引けるように辞書化（同startが複数なら先勝ち）
+    by_start = {}
+    for r in results or []:
+        if isinstance(r, dict) and r.get("start_time"):
+            by_start.setdefault(r["start_time"], r)
+
+    aligned = []
+    for (st, et) in timeline:
+        if st and st in by_start:
+            aligned.append(by_start[st])
+        else:
+            aligned.append({})
+    return aligned
+
+
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
 # ==========================
@@ -914,5 +948,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
