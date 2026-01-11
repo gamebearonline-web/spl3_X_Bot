@@ -774,18 +774,37 @@ def main():
         chal_normal = fetch_schedule(API_URLS["challenge"])
         chal_fest   = fetch_schedule(API_URLS["fest_challenge"])
 
+        def _has_usable_stages(item):
+            if not isinstance(item, dict):
+                return False
+            stages = item.get("stages")
+            return isinstance(stages, list) and len(stages) > 0
+
         def merge_by_fest_slot(normal_results, fest_results, fest_slots_dict):
             merged = []
-            for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
-                if fest_slots_dict.get(slot) and idx < len(fest_results):
-                    merged.append(fest_results[idx])
-                elif idx < len(normal_results):
-                    merged.append(normal_results[idx])
-                elif idx < len(fest_results):
-                    merged.append(fest_results[idx])
+            slots = ["now", "next", "next2", "next3", "next4"]
+
+            for idx, slot in enumerate(slots):
+                normal_item = normal_results[idx] if idx < len(normal_results) else {}
+                fest_item   = fest_results[idx]   if idx < len(fest_results) else {}
+
+                # まずは「そのスロットがフェス枠なら fest を優先、違うなら normal を優先」
+                first = fest_item if fest_slots_dict.get(slot) else normal_item
+                second = normal_item if first is fest_item else fest_item
+
+                # ★重要：stages が使える方を採用（next4 が消える問題の根本対策）
+                if _has_usable_stages(first):
+                    picked = first
+                elif _has_usable_stages(second):
+                    picked = second
                 else:
-                    merged.append({})
+                    # どっちも stages が無い/None の場合は first を返す（時刻だけでも出る）
+                    picked = first or {}
+
+                merged.append(picked)
+
             return merged
+
 
         open_merged = merge_by_fest_slot(open_normal, open_fest, fest_slots)
         chal_merged = merge_by_fest_slot(chal_normal, chal_fest, fest_slots)
@@ -796,9 +815,16 @@ def main():
         # xmatch / salmon
         if fest_slots.get("now"):
             fest_for_tricolor = fetch_schedule(API_URLS["fest_open"])
+            x_normal = fetch_schedule(API_URLS["xmatch"])
+
+            # まず通常Xを全部描く（ベース）
+            render_versus_mode(base, "xmatch", x_normal, fest_slots=None)
+
+            # その上から「トリカラ枠だけ」上書き
             render_tricolor_in_xmatch(base, fest_for_tricolor)
         else:
             render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
+
 
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
 
@@ -863,3 +889,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
