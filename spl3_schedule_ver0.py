@@ -824,15 +824,27 @@ def main():
     apply_fest_overlays(base, fest_slots)
 
     try:
-        # regular
-        render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), fest_slots=None)
+               # regular（基準）
+        regular_results = fetch_schedule(API_URLS["regular"])
+        render_versus_mode(base, "regular", regular_results, fest_slots=None)
 
-        # open/challenge：フェス枠だけ差し替え（今の仕様のまま）
-        open_normal = fetch_schedule(API_URLS["open"])
-        open_fest   = fetch_schedule(API_URLS["fest_open"])
-        chal_normal = fetch_schedule(API_URLS["challenge"])
-        chal_fest   = fetch_schedule(API_URLS["fest_challenge"])
+        # ★基準タイムライン（regular の now〜next4 に合わせる）
+        timeline = build_timeline_from_regular(regular_results)
 
+        # open/challenge：取得して「タイムラインに整列」
+        open_normal_raw = fetch_schedule(API_URLS["open"])
+        chal_normal_raw = fetch_schedule(API_URLS["challenge"])
+
+        open_fest_raw   = fetch_schedule(API_URLS["fest_open"])
+        chal_fest_raw   = fetch_schedule(API_URLS["fest_challenge"])
+
+        open_normal = align_results_to_timeline(open_normal_raw, timeline)
+        chal_normal = align_results_to_timeline(chal_normal_raw, timeline)
+
+        open_fest   = align_results_to_timeline(open_fest_raw, timeline)
+        chal_fest   = align_results_to_timeline(chal_fest_raw, timeline)
+
+        # --- ここから下は、あなたの merge ロジックをそのまま使用 ---
         def _has_usable_stages(item):
             if not isinstance(item, dict):
                 return False
@@ -847,29 +859,26 @@ def main():
                 normal_item = normal_results[idx] if idx < len(normal_results) else {}
                 fest_item   = fest_results[idx]   if idx < len(fest_results) else {}
 
-                # まずは「そのスロットがフェス枠なら fest を優先、違うなら normal を優先」
                 first = fest_item if fest_slots_dict.get(slot) else normal_item
                 second = normal_item if first is fest_item else fest_item
 
-                # ★重要：stages が使える方を採用（next4 が消える問題の根本対策）
                 if _has_usable_stages(first):
                     picked = first
                 elif _has_usable_stages(second):
                     picked = second
                 else:
-                    # どっちも stages が無い/None の場合は first を返す（時刻だけでも出る）
                     picked = first or {}
 
                 merged.append(picked)
 
             return merged
 
-
         open_merged = merge_by_fest_slot(open_normal, open_fest, fest_slots)
         chal_merged = merge_by_fest_slot(chal_normal, chal_fest, fest_slots)
 
         render_versus_mode(base, "open", open_merged, fest_slots=fest_slots)
         render_versus_mode(base, "challenge", chal_merged, fest_slots=fest_slots)
+
 
         # xmatch / salmon
         if fest_slots.get("now"):
@@ -948,6 +957,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
