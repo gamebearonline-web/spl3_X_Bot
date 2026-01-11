@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 import datetime
 import os
 import json
+import time
 
 # ==========================
 # ★ API URL
@@ -504,18 +505,42 @@ def draw_salmon_weapons(base, slot, weapons):
 # ==========================
 def fetch_schedule(url):
     try:
-        print(f"[DEBUG] Fetching: {url}")
-        resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        results = data.get("results", [])
-        print(f"[DEBUG] {url} returned {len(results) if results else 0} results")
-        return results or []
+        # まず通常取得
+        headers = {
+            "User-Agent": "Spla3StageBot/1.0",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        }
+
+        def _get(u, with_bust: bool):
+            params = {"_": int(time.time() * 1000)} if with_bust else None
+            resp = session.get(u, headers=headers, params=params, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("results", []) or []
+
+        results = _get(url, with_bust=False)
+
+        # ★ 5件未満ならキャッシュ回避でリトライ（最大3回）
+        if len(results) < 5:
+            print(f"[WARN] {url} results={len(results)} (<5). retry with cache-bust...")
+            for retry in range(3):
+                time.sleep(0.3)
+                results2 = _get(url, with_bust=True)
+                print(f"[DEBUG] retry#{retry+1} {url} results={len(results2)}")
+                if len(results2) >= 5:
+                    results = results2
+                    break
+
+        print(f"[DEBUG] {url} final results={len(results)}")
+        return results
+
     except Exception as e:
         print(f"[ERR] fetch_schedule failed for {url}: {e}")
         import traceback
         traceback.print_exc()
         return []
+
 
 def fetch_now(url):
     try:
@@ -889,4 +914,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
