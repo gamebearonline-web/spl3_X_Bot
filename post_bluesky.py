@@ -1,10 +1,12 @@
-# post_bluesky.py (X投稿文と同一フォーマット対応)
+# post_bluesky.py (X投稿文と同一フォーマット対応 + Bluesky画像サイズ制限対策)
 import os
 import sys
 import json
 import requests
 from datetime import datetime
 import pytz
+
+from PIL import Image  # ★追加（圧縮用）
 
 
 def safe_join(items):
@@ -50,20 +52,18 @@ def build_post_text(now_jst: datetime) -> str:
 
         # ✅ フェス時：指定フォーマット
         if is_fest:
-            # ★トリカラは schedule.json の xRule/xStages を優先して拾う（生成側がX欄に入れる仕様に対応）
+            # ★トリカラは schedule.json の xRule/xStages を優先
             x_rule = s.get("xRule", "")
             x_stages = s.get("xStages", []) or []
 
             # 旧仕様（tricolorStages）も保険で拾う
             legacy_tri = s.get("tricolorStages", []) or []
 
-            # トリカラ判定：xRule がトリカラ、または legacy がある場合
             if (isinstance(x_rule, str) and "トリカラ" in x_rule) and x_stages:
                 tricolor = safe_join(x_stages)
             else:
                 tricolor = safe_join(legacy_tri)
 
-            # 空のときの表示（好みで変更可）
             tri_line = f"🎆トリカラ：{tricolor}" if tricolor else "🎆トリカラ：-"
 
             return (
@@ -75,7 +75,7 @@ def build_post_text(now_jst: datetime) -> str:
                 f"{tri_line}"
             )
 
-        # ✅ 通常時：これまで通り
+        # ✅ 通常時
         regular = safe_join(s.get("regularStages", []) or [])
         x_rule_normal = s.get("xRule", "不明")
         x_stages_normal = safe_join(s.get("xStages", []) or [])
@@ -114,12 +114,69 @@ def bluesky_request(url, method="POST", headers=None, json=None, data=None):
             print(res.text)
             sys.exit(1)
 
-        # uploadBlob は JSON を返すが、稀に空になるケースもあるので保険
         return res.json() if res.text else {}
 
     except Exception as e:
         print(f"[ERROR] Bluesky request 失敗: {url} → {repr(e)}")
         sys.exit(1)
+
+
+# =========================================================
+# ★ 追加：Bluesky画像サイズ制限対策（BlobTooLarge）
+#   - 元画像が大きい場合、JPEG化して max_bytes 以下に落とす
+#   - 生成したファイルパスと Content-Type を返す
+# =========================================================
+def ensure_bluesky_upload_image(image_path: str, max_bytes: int = 950 * 1024):
+    """
+    Returns: (upload_path, content_type)
+      - upload_path: 実際にアップロードする画像パス
+      - content_type: 'image/png' or 'image/jpeg'
+    """
+    if not image_path or not os.path.exists(image_path):
+        return (image_path, "image/png")
+
+    size = os.path.getsize(image_path)
+    print(f"[INFO] Original image size: {size/1024:.2f}KB")
+
+    if size <= max_bytes:
+        # 拡張子から Content-Type 推定（基本 png想定）
+        ext = os.path.splitext(image_path)[1].lower()
+        if ext in (".jpg", ".jpeg"):
+            return (image_path, "image/jpeg")
+        return (image_path, "image/png")
+
+    # 大きい場合：JPEGに変換して圧縮
+    base, _ = os.path.splitext(image_path)
+    out_path = base + "_bsky.jpg"
+
+    try:
+        img = Image.open(image_path).convert("RGB")
+    except Exception as e:
+        print(f"[WARN] PIL open failed; upload original as-is. err={e}")
+        return (image_path, "image/png")
+
+    # 品質を下げながら max_bytes を下回るまで試す
+    for q in [85, 80, 75, 70, 65, 60, 55]:
+        try:
+            img.save(out_path, format="JPEG", quality=q, optimize=True, progressive=True)
+            new_size = os.path.getsize(out_path)
+            print(f"[INFO] Compress try q={q}: {new_size/1024:.2f}KB")
+            if new_size <= max_bytes:
+                return (out_path, "image/jpeg")
+        except Exception as e:
+            print(f"[WARN] JPEG save failed q={q}: {e}")
+
+    # どうしても収まらない場合：軽くリサイズして最後に保存
+    try:
+        w, h = img.size
+        img2 = img.resize((int(w * 0.95), int(h * 0.95)))
+        img2.save(out_path, format="JPEG", quality=55, optimize=True, progressive=True)
+        new_size = os.path.getsize(out_path)
+        print(f"[WARN] Forced resize: {new_size/1024:.2f}KB")
+        return (out_path, "image/jpeg")
+    except Exception as e:
+        print(f"[WARN] Forced resize failed; upload original as-is. err={e}")
+        return (image_path, "image/png")
 
 
 def post_to_bluesky(image_path, text):
@@ -149,16 +206,20 @@ def post_to_bluesky(image_path, text):
 
     # ===== ② 画像アップロード =====
     blob = None
-    if image_path and os.path.exists(image_path):
-        print(f"[INFO] 画像アップロード中 → {image_path}")
-        with open(image_path, "rb") as f:
+
+    # ★追加：Bluesky制限に合わせてアップロード画像を調整
+    upload_path, content_type = ensure_bluesky_upload_image(image_path)
+
+    if upload_path and os.path.exists(upload_path):
+        print(f"[INFO] 画像アップロード中 → {upload_path} ({content_type})")
+        with open(upload_path, "rb") as f:
             img_bytes = f.read()
 
         upload_res = bluesky_request(
             "https://bsky.social/xrpc/com.atproto.repo.uploadBlob",
             headers={
                 "Authorization": f"Bearer {access_jwt}",
-                "Content-Type": "image/png"
+                "Content-Type": content_type
             },
             data=img_bytes
         )
@@ -169,7 +230,7 @@ def post_to_bluesky(image_path, text):
         else:
             print("[WARN] 画像アップロード応答に blob がありません（画像なし投稿で続行）")
     else:
-        print(f"[WARN] 画像が見つかりません → {image_path}")
+        print(f"[WARN] 画像が見つかりません → {upload_path}")
 
     # ===== ③ レコード作成 =====
     record = {
