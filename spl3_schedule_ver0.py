@@ -42,13 +42,12 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 # ==========================
 # ★ パス設定
 # ==========================
 TEMPLATE_PATH = "spl3_Schedule_Template_ver0.png"
-FEST_NOW_OVERLAY = "fest/now_fest.png"  # フェスnow用オーバーレイ
-FEST_NEXT_OVERLAY = "fest/next_fest.png"  # フェスnext用オーバーレイ
+FEST_NOW_OVERLAY = "fest/now_fest.png"   # フェスnow用オーバーレイ
+FEST_NEXT_OVERLAY = "fest/next_fest.png" # フェスnext用オーバーレイ
 OUTPUT_PATH   = "Thumbnail/Thumbnail.png"
 ICON_DIR      = "icon"
 
@@ -58,28 +57,19 @@ os.makedirs("Thumbnail", exist_ok=True)
 # ★ 高速化:画像キャッシュ & Session
 # ==========================
 session = requests.Session()
-IMAGE_CACHE = {}
 
-def fetch_image(url):
-    if url not in IMAGE_CACHE:
-        resp = session.get(url, headers={"User-Agent": "Spla3Img/1.0"})
-        resp.raise_for_status()
-        IMAGE_CACHE[url] = Image.open(BytesIO(resp.content)).convert("RGB")
-    return IMAGE_CACHE[url].copy()
-
-# 透過PNG(武器など)用：RGBAで取得してマスク貼り付け可能にする
+# ★重要：すべてRGBAで扱う（Open/Challenge/Xの描画崩れ防止）
 IMAGE_CACHE_RGBA = {}
 
-def fetch_image_rgba(url):
+def fetch_image_rgba(url: str) -> Image.Image:
     if url not in IMAGE_CACHE_RGBA:
-        resp = session.get(url, headers={"User-Agent": "Spla3Img/1.0"})
+        resp = session.get(url, headers={"User-Agent": "Spla3Img/1.0"}, timeout=10)
         resp.raise_for_status()
         IMAGE_CACHE_RGBA[url] = Image.open(BytesIO(resp.content)).convert("RGBA")
     return IMAGE_CACHE_RGBA[url].copy()
 
-
 # ==========================
-# ★ フェス開催中判定（グローバル）
+# ★ フェス開催中判定（スロット別）
 # ==========================
 def check_fest_slots():
     """
@@ -89,12 +79,11 @@ def check_fest_slots():
     slots = {"now": False, "next": False, "next2": False, "next3": False, "next4": False}
 
     try:
-        fest_results = fetch_schedule(API_URLS["fest_open"])  # https://spla3.yuu26.com/api/fest/schedule
-
+        fest_results = fetch_schedule(API_URLS["fest_open"])
         for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
             if idx >= len(fest_results):
                 continue
-            info = fest_results[idx]
+            info = fest_results[idx] or {}
             stages = info.get("stages")
             if stages is not None:
                 slots[slot] = True
@@ -108,8 +97,6 @@ def check_fest_slots():
         print(f"[WARN] フェス枠判定エラー: {e}")
 
     return slots
-
-       
 
 # ==========================
 # ★ テーマカラー
@@ -130,7 +117,6 @@ FEST_TEXT_BG = {
     "challenge": (232, 213, 38),   # #e8d526
     "xmatch":    (102, 77, 222),   # #664dde
 }
-
 
 # ==========================
 # ★ フォント
@@ -174,7 +160,6 @@ def draw_text_with_bg(draw, box, text, font, bg_fill, text_fill=(0, 0, 0), paddi
     draw.rectangle([cx - padding, cy - padding, cx + tw + padding, cy + th + padding], fill=bg_fill)
     draw.text((cx, cy), text, font=font, fill=text_fill)
 
-
 # ==========================
 # ★ ルールアイコン座標
 # ==========================
@@ -213,14 +198,12 @@ def draw_rule_icon(base, mode, slot, rule_key):
     if not os.path.exists(icon_path):
         return
 
-    icon = Image.open(icon_path).convert("RGBA")
-    icon = icon.resize((int(w), int(h)))
+    icon = Image.open(icon_path).convert("RGBA").resize((int(w), int(h)))
     base.paste(icon, (int(x), int(y)), icon)
 
 # ==========================
-# ★ ステージ座標（regular / open / challenge / xmatch / salmon）
+# ★ ステージ座標
 # ==========================
-
 coords_regular = {
     "now": {
         "start_time":  (37.15, 49.875, 89.302, 18.556),
@@ -435,7 +418,7 @@ COORDS_TABLE = {
 }
 
 # ==========================
-# ★ BIG RUN アイコン座標
+# ★ BIG RUN
 # ==========================
 BIG_RUN_COORDS = {
     "now":   (998.564, 180, 150, 75),
@@ -456,10 +439,8 @@ def draw_big_run(base, slot, is_big_run):
     if not os.path.exists(icon_path):
         return
 
-    img = Image.open(icon_path).convert("RGBA")
-    img = img.resize((int(w), int(h)))
+    img = Image.open(icon_path).convert("RGBA").resize((int(w), int(h)))
     base.paste(img, (int(x), int(y)), img)
-
 
 # ==========================
 # ★ BOSS（オカシラ）
@@ -491,14 +472,11 @@ def draw_boss_icon(base, slot, boss_id):
 
     x, y = BOSS_COORDS[slot]
     w, h = BOSS_SIZES[slot]
-
-    icon = Image.open(icon_path).convert("RGBA")
-    icon = icon.resize((int(w), int(h)))
+    icon = Image.open(icon_path).convert("RGBA").resize((int(w), int(h)))
     base.paste(icon, (int(x), int(y)), icon)
 
-
 # ==========================
-# ★ サーモン武器
+# ★ サーモン武器（RGBA合成）
 # ==========================
 def draw_salmon_weapons(base, slot, weapons):
     if slot not in coords_salmon:
@@ -516,15 +494,10 @@ def draw_salmon_weapons(base, slot, weapons):
 
         wx, wy = cslot[key]
         try:
-            # ★ここが重要：RGBAで取得して透過を保持
             img = fetch_image_rgba(weapons[i]["image"]).resize(size)
-            # RGBのbaseに貼るので、maskとしてimg自身(α)を渡す
             base.paste(img, (int(wx), int(wy)), img)
         except Exception as e:
-            # もし今後も出ない場合の原因が分かるようにログ出す（任意）
             print(f"[WARN] weapon paste failed slot={slot} i={i}: {e}")
-
-
 
 # ==========================
 # ★ API 共通
@@ -537,9 +510,7 @@ def fetch_schedule(url):
         data = resp.json()
         results = data.get("results", [])
         print(f"[DEBUG] {url} returned {len(results) if results else 0} results")
-        if results is None:
-            return []
-        return results
+        return results or []
     except Exception as e:
         print(f"[ERR] fetch_schedule failed for {url}: {e}")
         import traceback
@@ -553,7 +524,6 @@ def fetch_now(url):
         resp.raise_for_status()
         data = resp.json()
         results = data.get("results")
-        print(f"[DEBUG] {url} returned: {type(results)}")
         if not results:
             return {}
         return results[0] if isinstance(results, list) else results
@@ -562,7 +532,6 @@ def fetch_now(url):
         import traceback
         traceback.print_exc()
         return {}
-
 
 # ==========================
 # ★ バトル（regular / open / challenge / xmatch）
@@ -581,13 +550,8 @@ def render_versus_mode(base, mode, results, fest_slots=None):
         if slot not in coords_mode or idx >= len(results):
             continue
 
-        info  = results[idx]
+        info  = results[idx] or {}
         cslot = coords_mode[slot]
-
-        stages = info.get("stages")
-        if stages is None:
-            print(f"[WARN] {mode} {slot}: stages is None, skipping")
-            continue
 
         # ★スロット別フェス判定（open/challengeだけ fest_slots を渡す運用）
         is_fest_slot = bool(fest_slots and fest_slots.get(slot, False))
@@ -598,7 +562,7 @@ def render_versus_mode(base, mode, results, fest_slots=None):
         else:
             bg_color = MODE_COLORS[mode]
 
-        # フォント選択
+        # フォント
         font_time  = FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL
         font_stage = FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL
 
@@ -609,107 +573,90 @@ def render_versus_mode(base, mode, results, fest_slots=None):
             time_text = f"{start.strftime('%H:%M')}~{end.strftime('%H:%M')}"
             draw_text_with_bg(draw, cslot["start_time"], time_text, font_time, bg_fill=bg_color)
 
-        # ステージ描画
-        stages = info.get("stages", [])
+        # ステージ描画（ここを「常にRGBA+mask貼り」に統一）
+        stages = info.get("stages") or []
         for i in (0, 1):
             if i >= len(stages):
                 continue
-            stg = stages[i]
+            stg = stages[i] or {}
 
-            if f"stage{i}_image" in cslot:
+            if f"stage{i}_image" in cslot and stg.get("image"):
                 ix, iy, iw, ih = cslot[f"stage{i}_image"]
                 try:
-                    img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
-                    base.paste(img, (int(ix), int(iy)))
-                except Exception:
-                    pass
+                    img = fetch_image_rgba(stg["image"]).resize((int(iw), int(ih)))
+                    base.paste(img, (int(ix), int(iy)), img)  # ★mask付き
+                except Exception as e:
+                    print(f"[WARN] stage image paste failed mode={mode} slot={slot} i={i}: {e}")
 
-            if f"stage{i}_name" in cslot:
+            if f"stage{i}_name" in cslot and stg.get("name"):
                 draw_text_with_bg(draw, cslot[f"stage{i}_name"], stg["name"], font_stage, bg_fill=bg_color)
 
         # ルールアイコン
-        rule_key = info.get("rule", {}).get("key")
+        rule_key = (info.get("rule") or {}).get("key")
         draw_rule_icon(base, mode, slot, rule_key)
 
 def render_tricolor_in_xmatch(base, fest_results):
     """
-    フェスAPIの results を使って、トリカラ枠だけ Xマッチ欄(coords_xmatch)に描画する
-    fest_results[idx] の
-      - is_tricolor == True
-      - tricolor_stages がある
-    ときだけ描く
+    フェスAPIの results を使って、トリカラ枠だけ Xマッチ欄(coords_xmatch)に描画
     """
     if not fest_results:
         print("[WARN] fest_results is empty (tricolor)")
         return
 
-    coords_mode = COORDS_TABLE["xmatch"]   # ←X欄に描く
+    coords_mode = COORDS_TABLE["xmatch"]
     draw = ImageDraw.Draw(base)
 
     for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
         if slot not in coords_mode or idx >= len(fest_results):
             continue
 
-        info = fest_results[idx]
-        if not info:
-            continue
-
-        # トリカラ開催枠だけ
+        info = fest_results[idx] or {}
         if not info.get("is_tricolor"):
             continue
 
-        tri_stages = info.get("tricolor_stages")
+        tri_stages = info.get("tricolor_stages") or []
         if not tri_stages:
             continue
 
         cslot = coords_mode[slot]
+        bg_color = FEST_TEXT_BG["xmatch"]
 
-        # 背景色：フェス用（あなたの定義を流用）
-        bg_color = FEST_TEXT_BG["xmatch"]  # (102, 77, 222)
-
-        # フォント
         font_time  = FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL
         font_stage = FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL
 
-        # 時刻表示（start_time座標を流用）
         if "start_time" in cslot and info.get("start_time") and info.get("end_time"):
             start = datetime.datetime.fromisoformat(info["start_time"].replace("Z", "+00:00"))
             end   = datetime.datetime.fromisoformat(info["end_time"].replace("Z", "+00:00"))
             time_text = f"{start.strftime('%H:%M')}~{end.strftime('%H:%M')}"
             draw_text_with_bg(draw, cslot["start_time"], time_text, font_time, bg_fill=bg_color)
 
-        # ステージ描画（X欄の stage0/stage1 を使う。トリカラは複数あり得るので先頭2つ）
         for i in (0, 1):
             if i >= len(tri_stages):
                 continue
-            stg = tri_stages[i]
+            stg = tri_stages[i] or {}
 
-            if f"stage{i}_image" in cslot:
+            if f"stage{i}_image" in cslot and stg.get("image"):
                 ix, iy, iw, ih = cslot[f"stage{i}_image"]
                 try:
-                    img = fetch_image(stg["image"]).resize((int(iw), int(ih)))
-                    base.paste(img, (int(ix), int(iy)))
+                    img = fetch_image_rgba(stg["image"]).resize((int(iw), int(ih)))
+                    base.paste(img, (int(ix), int(iy)), img)  # ★mask付き
                 except Exception as e:
                     print(f"[WARN] tricolor stage image failed slot={slot} i={i}: {e}")
 
-            if f"stage{i}_name" in cslot:
+            if f"stage{i}_name" in cslot and stg.get("name"):
                 draw_text_with_bg(draw, cslot[f"stage{i}_name"], stg["name"], font_stage, bg_fill=bg_color)
-
-        # ルールアイコンは「トリカラ専用キー」が無い/不明なことが多いので、ここでは描かない（必要なら後で対応）
-
 
 # ==========================
 # ★ サーモンラン
 # ==========================
 def render_salmon_mode(base, results):
     print(f"[DEBUG] render_salmon_mode: results count={len(results) if results else 0}")
-    
+
     if not results:
-        print(f"[WARN] salmon has no results")
+        print("[WARN] salmon has no results")
         return
-    
+
     coords_mode = COORDS_TABLE["salmon"]
-    # ... 残りのコード
     draw = ImageDraw.Draw(base)
     color = MODE_COLORS["salmon"]
 
@@ -717,57 +664,54 @@ def render_salmon_mode(base, results):
         if slot not in coords_mode or idx >= len(results):
             continue
 
-        info = results[idx]
+        info = results[idx] or {}
         cslot = coords_mode[slot]
 
-        boss_id = info.get("boss", {}).get("id")
-        is_big_run = info.get("is_big_run", False)
+        boss_id = (info.get("boss") or {}).get("id")
+        is_big_run = bool(info.get("is_big_run", False))
 
-        start_label = format_salmon_datetime(info["start_time"])
-        end_label   = "~" + format_salmon_datetime(info["end_time"])
+        if info.get("start_time") and info.get("end_time"):
+            start_label = format_salmon_datetime(info["start_time"])
+            end_label   = "~" + format_salmon_datetime(info["end_time"])
+        else:
+            start_label = ""
+            end_label = ""
 
         font_time  = FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL
         font_stage = FONT_STAGE_NOW if slot == "now" else FONT_STAGE_SMALL
 
-        if "start_time" in cslot:
+        if "start_time" in cslot and start_label:
             draw_text_left(draw, cslot["start_time"], start_label, font_time, bg_fill=color)
 
-        if "end_time" in cslot:
+        if "end_time" in cslot and end_label:
             draw_text_left(draw, cslot["end_time"], end_label, font_time, bg_fill=color)
 
-        stage = info.get("stage")
+        stage = info.get("stage") or {}
         if stage:
-            if "stage_image" in cslot:
+            if "stage_image" in cslot and stage.get("image"):
                 ix, iy, iw, ih = cslot["stage_image"]
                 try:
-                    img = fetch_image(stage["image"])
-                    img = img.resize((int(iw), int(ih)))
-                    base.paste(img, (int(ix), int(iy)))
-                except Exception:
-                    pass
+                    img = fetch_image_rgba(stage["image"]).resize((int(iw), int(ih)))
+                    base.paste(img, (int(ix), int(iy)), img)  # ★mask付き
+                except Exception as e:
+                    print(f"[WARN] salmon stage image paste failed slot={slot}: {e}")
 
-            if "stage_name" in cslot:
+            if "stage_name" in cslot and stage.get("name"):
                 draw_text_with_bg(draw, cslot["stage_name"], stage["name"], font_stage, bg_fill=color)
 
-        draw_salmon_weapons(base, slot, info.get("weapons", []))
+        draw_salmon_weapons(base, slot, info.get("weapons", []) or [])
         draw_boss_icon(base, slot, boss_id)
         draw_big_run(base, slot, is_big_run)
 
 # ==========================
-# ★ 指定位置に貼る用ユーティリティを追加（RGBAで貼る）
+# ★ 指定位置に貼る（RGBA合成）
 # ==========================
 def paste_overlay_rect(base: Image.Image, overlay_path: str, x: int, y: int, w: int, h: int):
-    """
-    overlay画像を指定矩形(x,y,w,h)へリサイズしてRGBA合成で貼る
-    """
     if not os.path.exists(overlay_path):
         print(f"[WARN] overlay not found: {overlay_path}")
         return
-
     try:
-        ov = Image.open(overlay_path).convert("RGBA")
-        ov = ov.resize((int(w), int(h)))
-        # baseはRGBでもOK。maskにov自身(α)を渡して合成
+        ov = Image.open(overlay_path).convert("RGBA").resize((int(w), int(h)))
         base.paste(ov, (int(x), int(y)), ov)
     except Exception as e:
         print(f"[WARN] overlay paste failed: {overlay_path} err={e}")
@@ -776,23 +720,13 @@ def paste_overlay_rect(base: Image.Image, overlay_path: str, x: int, y: int, w: 
 # ★ フェスオーバーレイ適用
 # ==========================
 def apply_fest_overlays(base, fest_slots):
-    """
-    フェス枠のスロットだけオーバーレイを貼る
-    - now:  x20 y10  w920 h311
-    - next: x20 y320 w920 h81
-    - next2:x20 y400 w920 h81
-    - next3:x20 y480 w920 h81
-    - next4:x20 y560 w920 h81
-    """
     if not fest_slots or not any(fest_slots.values()):
         return
 
-    # now
     if fest_slots.get("now"):
         paste_overlay_rect(base, FEST_NOW_OVERLAY, 20, 10, 920, 310)
         print(f"[INFO] フェスnowオーバーレイ適用: {FEST_NOW_OVERLAY}")
 
-    # next1~4
     next_rects = {
         "next":  (20, 318, 920, 84),
         "next2": (20, 398, 920, 84),
@@ -805,12 +739,8 @@ def apply_fest_overlays(base, fest_slots):
             paste_overlay_rect(base, FEST_NEXT_OVERLAY, x, y, w, h)
             print(f"[INFO] フェス{slot}オーバーレイ適用: {FEST_NEXT_OVERLAY}")
 
-
 # ==========================
-# ★ メイン（レイヤー順序 修正版）
-#   最下層：通常テンプレ
-#   次：フェステンプレ（オーバーレイ）
-#   最上層：API出力結果
+# ★ メイン
 # ==========================
 def main():
     global OUTPUT_PATH
@@ -822,25 +752,23 @@ def main():
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    # テンプレ確認
     if not os.path.exists(TEMPLATE_PATH):
         print(f"[ERROR] テンプレートが見つかりません: {TEMPLATE_PATH}")
         return
 
     print(f"[INFO] ベーステンプレートを使用: {TEMPLATE_PATH}")
-    base = Image.open(TEMPLATE_PATH).convert("RGB")
+    # ★重要：ベースもRGBAに（合成のズレ/消えを防ぐ）
+    base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-    # ✅ フェス枠（now/next/next2/next3/next4）をスロット別に判定
-    fest_slots = check_fest_slots()  # {"now":bool, "next":bool, ...}
-
-    # ✅ ここで先にフェスオーバーレイを貼る（＝フェステンプレを下地にする）
+    # フェス枠判定→オーバーレイ適用（下地）
+    fest_slots = check_fest_slots()
     apply_fest_overlays(base, fest_slots)
 
     try:
-        # regular は常に通常
+        # regular
         render_versus_mode(base, "regular", fetch_schedule(API_URLS["regular"]), fest_slots=None)
 
-        # open/challenge はスロット別に合成して描画
+        # open/challenge：フェス枠だけ差し替え（今の仕様のまま）
         open_normal = fetch_schedule(API_URLS["open"])
         open_fest   = fetch_schedule(API_URLS["fest_open"])
         chal_normal = fetch_schedule(API_URLS["challenge"])
@@ -867,15 +795,12 @@ def main():
 
         # xmatch / salmon
         if fest_slots.get("now"):
-          # フェス中：X欄に「トリカラ開催枠だけ」描く
-          fest_for_tricolor = fetch_schedule(API_URLS["fest_open"])  # festでもopen側に入っている
-          render_tricolor_in_xmatch(base, fest_for_tricolor)
+            fest_for_tricolor = fetch_schedule(API_URLS["fest_open"])
+            render_tricolor_in_xmatch(base, fest_for_tricolor)
         else:
-          # 通常時：従来どおりXマッチ
-          render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
+            render_versus_mode(base, "xmatch", fetch_schedule(API_URLS["xmatch"]), fest_slots=None)
 
         render_salmon_mode(base, fetch_schedule(API_URLS["salmon"]))
-
 
     except Exception as e:
         print(f"[ERR] レンダリングエラー: {e}")
@@ -885,7 +810,6 @@ def main():
     # ==========================
     schedule_json_path = os.getenv("SCHEDULE_JSON", "/tmp/schedule.json")
 
-    # nowスロットがフェスならフェスnow API、そうでなければ通常now API
     if fest_slots.get("now"):
         open_now = fetch_now(API_NOW_URLS["fest_open"])
         chal_now = fetch_now(API_NOW_URLS["fest_challenge"])
@@ -894,21 +818,19 @@ def main():
         chal_now = fetch_now(API_NOW_URLS["challenge"])
 
     reg_now = fetch_now(API_NOW_URLS["regular"])
-    
-    # フェス中でも「now がトリカラ」なら X枠として出す
+
     if fest_slots.get("now"):
         fest_open_now = fetch_now(API_NOW_URLS["fest_open"])
         if fest_open_now.get("is_tricolor") and fest_open_now.get("tricolor_stages"):
-           x_rule_name = "トリカラマッチ"
-           x_stages_list = [s.get("name") for s in (fest_open_now.get("tricolor_stages") or [])][:2]
+            x_rule_name = "トリカラマッチ"
+            x_stages_list = [s.get("name") for s in (fest_open_now.get("tricolor_stages") or [])][:2]
         else:
-           x_rule_name = "-"
-           x_stages_list = []
+            x_rule_name = "-"
+            x_stages_list = []
     else:
-       x_now = fetch_now(API_NOW_URLS["xmatch"])
-       x_rule_name = (x_now.get("rule") or {}).get("name", "不明")
-       x_stages_list = [s.get("name") for s in (x_now.get("stages") or [])][:2]
-
+        x_now = fetch_now(API_NOW_URLS["xmatch"])
+        x_rule_name = (x_now.get("rule") or {}).get("name", "不明")
+        x_stages_list = [s.get("name") for s in (x_now.get("stages") or [])][:2]
 
     coop_now = fetch_now(API_NOW_URLS["salmon"])
 
@@ -939,9 +861,5 @@ def main():
     base.save(OUTPUT_PATH)
     print(f"[INFO] 画像出力完了: {OUTPUT_PATH}")
 
-
 if __name__ == "__main__":
     main()
-
-
-
