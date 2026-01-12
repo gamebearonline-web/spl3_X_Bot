@@ -80,7 +80,6 @@ def build_tweet_text(now_jst: datetime) -> str:
         salmon_stage = s.get("salmonStage", "不明")
 
         return (
-            "【スプラ3】スケジュール更新！\n"
             f"{time_str}\n"
             f"🟡レギュラー：{regular}\n"
             f"🟠オープン：{open_rule}：{open_stages}\n"
