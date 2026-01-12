@@ -70,6 +70,7 @@ def build_tweet_text(now_jst: datetime) -> str:
                 f"🥳オープン：{open_stages}\n"
                 f"🥳チャレンジ：{chal_stages}\n"
                 f"{tri_line}"
+                f"🔶サーモンラン：{salmon_stage}"
             )
 
         # ✅ 通常時：従来通り
