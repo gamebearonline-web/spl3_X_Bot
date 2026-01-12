@@ -8,6 +8,65 @@ import json
 import time
 
 # ==========================
+# ★ サーモン難易度評価（A案）
+# ==========================
+WEAPON_RANK_JSON = os.getenv("WEAPON_RANK_JSON", "data/weapon_rank.json")
+
+def load_weapon_rank():
+    try:
+        with open(WEAPON_RANK_JSON, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[WARN] weapon_rank.json load failed: {e}")
+        return {}
+
+def is_random_weapon(name: str) -> bool:
+    n = (name or "").strip()
+    return ("ランダム" in n) or (n.lower() == "random")
+
+def is_kuma_weapon(name: str) -> bool:
+    n = (name or "").strip()
+    return n.startswith("クマ") or ("クマサン" in n) or ("クマブキ" in n)
+
+def evaluate_salmon_rank(weapon_names, weapon_rank_dict):
+    # 例外：ランダム
+    if not weapon_names:
+        return "?"
+    if any(is_random_weapon(w) for w in weapon_names):
+        return "?"
+
+    # 例外：クマブキ
+    kuma_count = sum(1 for w in weapon_names if is_kuma_weapon(w))
+    if kuma_count == 4:
+        return "SS"
+    if kuma_count >= 1:
+        return "S"
+
+    # 通常：score計算
+    scores = []
+    for w in weapon_names:
+        info = weapon_rank_dict.get(w)
+        if not info or "score" not in info:
+            print(f"[WARN] weapon not found in weapon_rank.json: {w}")
+            return "?"
+        scores.append(float(info["score"]))
+
+    avg_score = sum(scores) / len(scores)
+    min_score = min(scores)
+    difficulty_score = 0.6 * avg_score + 0.4 * min_score
+
+    if difficulty_score >= 420:
+        return "A"
+    if difficulty_score >= 380:
+        return "B"
+    if difficulty_score >= 340:
+        return "C"
+    if difficulty_score >= 300:
+        return "D"
+    return "E"
+
+
+# ==========================
 # ★ API URL
 # ==========================
 API_URLS = {
@@ -109,6 +168,20 @@ MODE_COLORS = {
     "xmatch":    (10, 220, 156),
     "salmon":    (255, 139, 0),
 }
+
+# ==========================
+# ★ サーモン難易度 描画座標（指定どおり）
+# ==========================
+SALMON_DIFFICULTY_COORDS = {
+    "now":   (977.6, 172.5, 40, 40),
+    "next":  (977.6, 338.4, 30, 30),
+    "next2": (977.6, 418.4, 30, 30),
+    "next3": (977.6, 498.6, 30, 30),
+    "next4": (977.6, 578.1, 30, 30),
+}
+
+SALMON_DIFFICULTY_COLOR = (255, 139, 0)
+
 
 # ==========================
 # ★ フェス用 文字背景色
@@ -718,6 +791,9 @@ def render_salmon_mode(base, results):
     coords_mode = COORDS_TABLE["salmon"]
     draw = ImageDraw.Draw(base)
     color = MODE_COLORS["salmon"]
+    # ★追加：武器Tier辞書をロード（1回だけ）
+    weapon_rank_dict = load_weapon_rank()
+
 
     for idx, slot in enumerate(["now", "next", "next2", "next3", "next4"]):
         if slot not in coords_mode or idx >= len(results):
@@ -759,6 +835,25 @@ def render_salmon_mode(base, results):
                 draw_text_with_bg(draw, cslot["stage_name"], stage["name"], font_stage, bg_fill=color)
 
         draw_salmon_weapons(base, slot, info.get("weapons", []) or [])
+        # ★難易度評価→描画（追加）
+        weapons_list = info.get("weapons", []) or []
+        weapon_names = [w.get("name", "").strip() for w in weapons_list][:4]
+        rank = evaluate_salmon_rank(weapon_names, weapon_rank_dict)
+
+        if slot in SALMON_DIFFICULTY_COORDS:
+            x, y, w, h = SALMON_DIFFICULTY_COORDS[slot]
+            font_diff = FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL
+            # rank だけ表示（①の要望）
+            draw_text_with_bg(
+                draw,
+                (x, y, w, h),
+                rank,
+                font_diff,
+                bg_fill=SALMON_DIFFICULTY_COLOR,
+                text_fill=(0, 0, 0),
+                padding=2
+            )
+
         draw_boss_icon(base, slot, boss_id)
         draw_big_run(base, slot, is_big_run)
 
@@ -957,6 +1052,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
