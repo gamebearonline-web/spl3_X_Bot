@@ -173,11 +173,11 @@ MODE_COLORS = {
 # ★ サーモン難易度 描画座標（指定どおり）
 # ==========================
 SALMON_DIFFICULTY_COORDS = {
-    "now":   (977.6, 172.5, 60, 60),
-    "next":  (977.6, 338.4, 40, 40),
-    "next2": (977.6, 418.4, 40, 40),
-    "next3": (977.6, 498.6, 40, 40),
-    "next4": (977.6, 578.1, 40, 40),
+    "now":   (977.6, 172.5, 50, 50),
+    "next":  (977.6, 338.4, 30, 30),
+    "next2": (977.6, 418.4, 30, 30),
+    "next3": (977.6, 498.6, 30, 30),
+    "next4": (977.6, 578.1, 30, 30),
 }
 
 SALMON_DIFFICULTY_COLOR = (255, 139, 0)
@@ -202,6 +202,9 @@ FONT_TIME_NOW    = load_font(15)
 FONT_STAGE_NOW   = load_font(12)
 FONT_TIME_SMALL  = load_font(10)
 FONT_STAGE_SMALL = load_font(10)
+FONT_SALMON_RANK_NOW   = load_font(22)  # 今より大きく
+FONT_SALMON_RANK_NEXT = load_font(16)  # next以降用
+
 
 # ==========================
 # ★ サーモン用 日付＋曜日
@@ -842,7 +845,7 @@ def render_salmon_mode(base, results):
 
         if slot in SALMON_DIFFICULTY_COORDS:
             x, y, w, h = SALMON_DIFFICULTY_COORDS[slot]
-            font_diff = FONT_TIME_NOW if slot == "now" else FONT_TIME_SMALL
+            font_diff = FONT_SALMON_RANK_NOW if slot == "now" else FONT_SALMON_RANK_NEXT
             # rank だけ表示（①の要望）
             draw_text_with_bg(
                 draw,
@@ -1052,6 +1055,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
