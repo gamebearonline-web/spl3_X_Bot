@@ -202,8 +202,8 @@ FONT_TIME_NOW    = load_font(15)
 FONT_STAGE_NOW   = load_font(12)
 FONT_TIME_SMALL  = load_font(10)
 FONT_STAGE_SMALL = load_font(10)
-FONT_SALMON_RANK_NOW   = load_font(22)  # 今より大きく
-FONT_SALMON_RANK_NEXT = load_font(16)  # next以降用
+FONT_SALMON_RANK_NOW   = load_font(30)  # 今より大きく
+FONT_SALMON_RANK_NEXT = load_font(20)  # next以降用
 
 
 # ==========================
@@ -1055,6 +1055,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
