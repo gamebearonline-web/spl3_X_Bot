@@ -5,8 +5,7 @@ import json
 import requests
 from datetime import datetime
 import pytz
-
-from PIL import Image  # ★追加（圧縮用）
+from PIL import Image  # 圧縮用
 
 
 def safe_join(items):
@@ -50,6 +49,10 @@ def build_post_text(now_jst: datetime) -> str:
         chal_rule = s.get("challengeRule", "不明")
         chal_stages = safe_join(s.get("challengeStages", []) or [])
 
+        # ✅ サーモン（共通）
+        salmon_stage = s.get("salmonStage", "不明")
+        salmon_rank = s.get("salmonDifficulty", "?")
+
         # ✅ フェス時：指定フォーマット
         if is_fest:
             # ★トリカラは schedule.json の xRule/xStages を優先
@@ -71,14 +74,14 @@ def build_post_text(now_jst: datetime) -> str:
                 "【フェス開催中】\n"
                 f"🥳オープン：{open_stages}\n"
                 f"🥳チャレンジ：{chal_stages}\n"
-                f"{tri_line}"
+                f"{tri_line}\n"
+                f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
             )
 
         # ✅ 通常時
         regular = safe_join(s.get("regularStages", []) or [])
         x_rule_normal = s.get("xRule", "不明")
         x_stages_normal = safe_join(s.get("xStages", []) or [])
-        salmon_stage = s.get("salmonStage", "不明")
 
         return (
             f"{time_str}\n"
@@ -86,7 +89,7 @@ def build_post_text(now_jst: datetime) -> str:
             f"🟠オープン：{open_rule}：{open_stages}\n"
             f"🟠チャレンジ：{chal_rule}：{chal_stages}\n"
             f"🟢Xマッチ：{x_rule_normal}：{x_stages_normal}\n"
-            f"🔶サーモンラン：{salmon_stage}"
+            f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
         )
 
     # schedule.json が無い/壊れている場合の保険
@@ -120,7 +123,7 @@ def bluesky_request(url, method="POST", headers=None, json=None, data=None):
 
 
 # =========================================================
-# ★ 追加：Bluesky画像サイズ制限対策（BlobTooLarge）
+# Bluesky画像サイズ制限対策（BlobTooLarge）
 #   - 元画像が大きい場合、JPEG化して max_bytes 以下に落とす
 #   - 生成したファイルパスと Content-Type を返す
 # =========================================================
@@ -137,13 +140,11 @@ def ensure_bluesky_upload_image(image_path: str, max_bytes: int = 950 * 1024):
     print(f"[INFO] Original image size: {size/1024:.2f}KB")
 
     if size <= max_bytes:
-        # 拡張子から Content-Type 推定（基本 png想定）
         ext = os.path.splitext(image_path)[1].lower()
         if ext in (".jpg", ".jpeg"):
             return (image_path, "image/jpeg")
         return (image_path, "image/png")
 
-    # 大きい場合：JPEGに変換して圧縮
     base, _ = os.path.splitext(image_path)
     out_path = base + "_bsky.jpg"
 
@@ -205,7 +206,6 @@ def post_to_bluesky(image_path, text):
     # ===== ② 画像アップロード =====
     blob = None
 
-    # ★追加：Bluesky制限に合わせてアップロード画像を調整
     upload_path, content_type = ensure_bluesky_upload_image(image_path)
 
     if upload_path and os.path.exists(upload_path):
@@ -266,7 +266,7 @@ def main():
     jst = pytz.timezone("Asia/Tokyo")
     now = datetime.now(jst)
 
-    # ✅ テスト用：TWEET_TEXT があればそれを優先
+    # テスト用：TWEET_TEXT があればそれを優先
     text = os.getenv("TWEET_TEXT", "").strip()
     if not text:
         text = build_post_text(now)
