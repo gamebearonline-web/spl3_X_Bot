@@ -65,7 +65,6 @@ def build_tweet_text(now_jst: datetime) -> str:
             tri_line = f"🎆トリカラ：{tricolor}" if tricolor else "🎆トリカラ：-"
 
             return (
-                "【スプラ3】スケジュール更新！\n"
                 f"{time_str}\n"
                 "【フェス開催中】\n"
                 f"🥳オープン：{open_stages}\n"
