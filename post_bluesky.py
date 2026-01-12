@@ -67,7 +67,6 @@ def build_post_text(now_jst: datetime) -> str:
             tri_line = f"🎆トリカラ：{tricolor}" if tricolor else "🎆トリカラ：-"
 
             return (
-                "【スプラ3】スケジュール更新！\n"
                 f"{time_str}\n"
                 "【フェス開催中】\n"
                 f"🥳オープン：{open_stages}\n"
@@ -82,7 +81,6 @@ def build_post_text(now_jst: datetime) -> str:
         salmon_stage = s.get("salmonStage", "不明")
 
         return (
-            "【スプラ3】スケジュール更新！\n"
             f"{time_str}\n"
             f"🟡レギュラー：{regular}\n"
             f"🟠オープン：{open_rule}：{open_stages}\n"
