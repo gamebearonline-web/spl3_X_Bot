@@ -1,4 +1,4 @@
-# post_misskey.py (X投稿文と同一フォーマット対応)
+# post_misskey.py (X投稿文と同一フォーマット対応 + サーモンラン難易度ランク対応)
 import os
 import sys
 import json
@@ -48,9 +48,13 @@ def build_post_text(now_jst: datetime) -> str:
         chal_rule = s.get("challengeRule", "不明")
         chal_stages = safe_join(s.get("challengeStages", []) or [])
 
+        # ✅ サーモン（共通）
+        salmon_stage = s.get("salmonStage", "不明")
+        salmon_rank = s.get("salmonDifficulty", "?")
+
         # ✅ フェス時：指定フォーマット
         if is_fest:
-            # ★トリカラは schedule.json の xRule/xStages を優先して拾う（生成側がX欄に入れる仕様に対応）
+            # ★トリカラは schedule.json の xRule/xStages を優先して拾う
             x_rule = s.get("xRule", "")
             x_stages = s.get("xStages", []) or []
 
@@ -63,7 +67,6 @@ def build_post_text(now_jst: datetime) -> str:
             else:
                 tricolor = safe_join(legacy_tri)
 
-            # 空のときの表示（好みで変更可）
             tri_line = f"🎆トリカラ：{tricolor}" if tricolor else "🎆トリカラ：-"
 
             return (
@@ -71,14 +74,14 @@ def build_post_text(now_jst: datetime) -> str:
                 "【フェス開催中】\n"
                 f"🥳オープン：{open_stages}\n"
                 f"🥳チャレンジ：{chal_stages}\n"
-                f"{tri_line}"
+                f"{tri_line}\n"
+                f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
             )
 
-        # ✅ 通常時：これまでのフォーマット
+        # ✅ 通常時：これまでのフォーマット（サーモンにランク追加）
         regular = safe_join(s.get("regularStages", []) or [])
         x_rule_normal = s.get("xRule", "不明")
         x_stages_normal = safe_join(s.get("xStages", []) or [])
-        salmon_stage = s.get("salmonStage", "不明")
 
         return (
             f"{time_str}\n"
@@ -86,7 +89,7 @@ def build_post_text(now_jst: datetime) -> str:
             f"🟠オープン：{open_rule}：{open_stages}\n"
             f"🟠チャレンジ：{chal_rule}：{chal_stages}\n"
             f"🟢Xマッチ：{x_rule_normal}：{x_stages_normal}\n"
-            f"🔶サーモンラン：{salmon_stage}"
+            f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
         )
 
     # schedule.json が無い/壊れてる場合
@@ -117,7 +120,8 @@ def post_to_misskey(image_path, text):
         print("[ERROR] MISSKEY_TOKEN が設定されていません")
         sys.exit(1)
 
-    MISSKEY_API = os.getenv("MISSKEY_API", "https://misskey.io/api")  # ✅ 他インスタンス対応
+    # ✅ 他インスタンス対応
+    MISSKEY_API = os.getenv("MISSKEY_API", "https://misskey.io/api")
 
     # ======== ① 画像アップロード ========
     file_id = None
@@ -125,6 +129,7 @@ def post_to_misskey(image_path, text):
         print(f"[INFO] 画像アップロード中 → {image_path}")
 
         with open(image_path, "rb") as f:
+            # 画像形式は png 前提（jpeg化してる場合は content-type を変えてもOK）
             files = {"file": ("thumbnail.png", f, "image/png")}
             data = {"i": token}
 
