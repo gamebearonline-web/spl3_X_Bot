@@ -21,20 +21,32 @@ jobs:
           python-version: "3.11"
 
       - name: Install deps
-        run: pip install -r requirements.txt
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
+      # ✅ 出力先を固定（ここ重要）
       - name: Run image generator (SAVE)
-        run: python spl3_schedule_ver0.py
+        run: python spl3_schedule_ver0.py --output Thumbnail/Thumbnail.png
+
+      # ✅ 生成できてるか強制チェック（ここが最重要）
+      - name: Debug - validate output
+        run: |
+          echo "=== ls -la Thumbnail ==="
+          ls -la Thumbnail || true
+          echo "=== check file ==="
+          if [ ! -f Thumbnail/Thumbnail.png ]; then
+            echo "ERROR: Thumbnail/Thumbnail.png NOT FOUND"
+            exit 1
+          fi
+          ls -lh Thumbnail/Thumbnail.png
+          file Thumbnail/Thumbnail.png
 
       - name: Commit and Push (always commit)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 画像をステージ
           git add Thumbnail/Thumbnail.png
-
-          # 差分がなくても必ずコミットを作成
           git commit --allow-empty -m "Update Thumbnail.png (force)"
-
           git push origin HEAD:main
