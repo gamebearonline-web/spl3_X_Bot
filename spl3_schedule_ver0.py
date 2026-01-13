@@ -577,35 +577,52 @@ def draw_salmon_weapons(base, slot, weapons):
             print(f"[WARN] weapon paste failed slot={slot} i={i}: {e}")
 
 # ==========================
-# ★ API 共通
+# ★ API 共通（最新版を拾いやすい強化版）
 # ==========================
-def fetch_schedule(url):
+def fetch_schedule(url: str):
+    """
+    schedule API を取得して results(list) を返す。
+    ★重要：境界直後(例: 03:00)にCDNキャッシュで古いスケジュールを掴むことがあるため、
+            常に cache-bust を付けて取得する。
+    """
     try:
-        # まず通常取得
         headers = {
             "User-Agent": "Spla3StageBot/1.0",
-            "Cache-Control": "no-cache",
+            # ★CDN/プロキシ/ブラウザキャッシュ回避を強めに
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
             "Pragma": "no-cache",
+            "Expires": "0",
         }
 
-        def _get(u, with_bust: bool):
-            params = {"_": int(time.time() * 1000)} if with_bust else None
+        def _get(u: str):
+            # ★常に cache-bust（Cloudflare等のキャッシュ回避）
+            params = {"_": int(time.time() * 1000)}
             resp = session.get(u, headers=headers, params=params, timeout=10)
             resp.raise_for_status()
             data = resp.json()
             return data.get("results", []) or []
 
-        results = _get(url, with_bust=False)
+        # 1回目
+        results = _get(url)
 
-        # ★ 5件未満ならキャッシュ回避でリトライ（最大3回）
+        # ★境界直後の更新取りこぼし対策：短い間隔で2回目を打って新しい方を採用
+        #   （結果件数は変わらなくても中身が更新されているケースがある）
+        time.sleep(0.2)
+        results2 = _get(url)
+
+        # 2回目が取れていれば優先（基本は上書き）
+        if isinstance(results2, list) and len(results2) >= len(results):
+            results = results2
+
+        # 念のため：空や短すぎる場合だけ追加リトライ
         if len(results) < 5:
-            print(f"[WARN] {url} results={len(results)} (<5). retry with cache-bust...")
+            print(f"[WARN] {url} results={len(results)} (<5). retry...")
             for retry in range(3):
                 time.sleep(0.3)
-                results2 = _get(url, with_bust=True)
-                print(f"[DEBUG] retry#{retry+1} {url} results={len(results2)}")
-                if len(results2) >= 5:
-                    results = results2
+                results_retry = _get(url)
+                print(f"[DEBUG] retry#{retry+1} {url} results={len(results_retry)}")
+                if len(results_retry) >= 5:
+                    results = results_retry
                     break
 
         print(f"[DEBUG] {url} final results={len(results)}")
@@ -618,21 +635,35 @@ def fetch_schedule(url):
         return []
 
 
-def fetch_now(url):
+def fetch_now(url: str):
+    """
+    now API を取得して now枠(dict) を返す。
+    ★重要：nowも念のため cache-bust + no-store で取得する。
+    """
     try:
         print(f"[DEBUG] Fetching now: {url}")
-        resp = session.get(url, headers={"User-Agent": "Spla3StageBot/1.0"}, timeout=10)
+        headers = {
+            "User-Agent": "Spla3StageBot/1.0",
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        }
+        params = {"_": int(time.time() * 1000)}  # ★cache-bust
+
+        resp = session.get(url, headers=headers, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         results = data.get("results")
         if not results:
             return {}
         return results[0] if isinstance(results, list) else results
+
     except Exception as e:
         print(f"[ERR] fetch_now failed for {url}: {e}")
         import traceback
         traceback.print_exc()
         return {}
+
 
 def build_timeline_from_regular(regular_results):
     """
@@ -666,6 +697,7 @@ def align_results_to_timeline(results, timeline):
         else:
             aligned.append({})
     return aligned
+
 
 
 # ==========================
@@ -1064,4 +1096,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
