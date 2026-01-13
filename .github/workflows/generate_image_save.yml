@@ -30,22 +30,33 @@ jobs:
         run: python spl3_schedule_ver0.py --output Thumbnail/Thumbnail.png
 
       # ✅ 生成チェック + ハッシュ表示（「同一画像」切り分けに必須）
-      - name: Debug - validate output + hash
+      - name: Debug - hash BEFORE generate (HEAD file)
+        run: |
+          echo "=== sha256 HEAD:Thumbnail/Thumbnail.png (from git) ==="
+          if git cat-file -e HEAD:Thumbnail/Thumbnail.png 2>/dev/null; then
+            git show HEAD:Thumbnail/Thumbnail.png | sha256sum
+          else
+            echo "(HEAD has no Thumbnail/Thumbnail.png yet)"
+          fi
+
+      - name: Run image generator (SAVE)
+        run: python spl3_schedule_ver0.py --output Thumbnail/Thumbnail.png
+
+      - name: Debug - validate output + hash AFTER
         run: |
           echo "=== ls -la Thumbnail ==="
           ls -la Thumbnail || true
 
-          echo "=== check file ==="
-          if [ ! -f Thumbnail/Thumbnail.png ]; then
-            echo "ERROR: Thumbnail/Thumbnail.png NOT FOUND"
-            exit 1
-          fi
-
-          ls -lh Thumbnail/Thumbnail.png
-          file Thumbnail/Thumbnail.png
-
-          echo "=== sha256 Thumbnail/Thumbnail.png ==="
+          echo "=== sha256 WORKTREE Thumbnail/Thumbnail.png (generated) ==="
           sha256sum Thumbnail/Thumbnail.png
+
+          echo "=== git status ==="
+          git status --porcelain
+
+          echo "=== staged diff ==="
+          git add Thumbnail/Thumbnail.png
+          git diff --cached --name-status || true
+
 
       # ✅ 差分があるときだけ commit/push（空コミット禁止）
       - name: Commit and Push (only if changed)
