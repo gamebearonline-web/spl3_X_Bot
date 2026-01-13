@@ -1026,6 +1026,14 @@ def main():
 
     coop_now = fetch_now(API_NOW_URLS["salmon"])
 
+    # ★追加：サーモン難易度ランク（画像化と同じロジックで now 武器から算出）
+    weapon_rank_dict = load_weapon_rank()
+    salmon_weapons = [w.get("name") for w in (coop_now.get("weapons") or [])][:4]
+    salmon_difficulty = evaluate_salmon_rank(
+        [((n or "").strip()) for n in salmon_weapons],
+        weapon_rank_dict
+    )
+
     payload = {
         "updatedHour": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).hour,
         "isFestActive": bool(fest_slots.get("now")),
@@ -1043,15 +1051,17 @@ def main():
         "xStages": x_stages_list,
 
         "salmonStage": (coop_now.get("stage") or {}).get("name", "不明"),
-        "salmonWeapons": [w.get("name") for w in (coop_now.get("weapons") or [])][:4],
+        "salmonWeapons": salmon_weapons,
+
+        # ✅これが無かったのが原因：投稿文で使う “難易度ランク”
+        "salmonDifficulty": salmon_difficulty,
     }
 
     with open(schedule_json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     print(f"[INFO] JSON出力完了: {schedule_json_path}")
-
-    base.save(OUTPUT_PATH)
-    print(f"[INFO] 画像出力完了: {OUTPUT_PATH}")
+   
 
 if __name__ == "__main__":
     main()
+
