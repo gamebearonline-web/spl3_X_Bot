@@ -1,4 +1,4 @@
-# post_misskey.py (X投稿文と同一フォーマット対応 + サーモンラン難易度ランク対応)
+# post_misskey.py (X投稿文と同一フォーマット対応 + サーモンラン「now枠」難易度ランク対応)
 import os
 import sys
 import json
@@ -21,6 +21,116 @@ def load_schedule_json(path: str):
     except Exception as e:
         print("[WARN] schedule.json の読み込みに失敗:", repr(e))
         return None
+
+
+# ==============================
+# ★追加：ISO日時のパースと、nowに一致するサーモン枠の抽出
+# ==============================
+def _parse_dt_any(v):
+    """
+    ISO8601っぽい文字列を datetime にする（Z/オフセット両対応）。
+    失敗したら None。
+    """
+    if not isinstance(v, str) or not v:
+        return None
+    try:
+        s = v.strip()
+        # "Z" を +00:00 に変換
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        return datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+
+def _extract_stage_name(stage_val):
+    """
+    stage が dict でも str でも拾えるようにする
+    """
+    if isinstance(stage_val, str):
+        return stage_val
+    if isinstance(stage_val, dict):
+        return (
+            stage_val.get("name")
+            or stage_val.get("jpName")
+            or stage_val.get("nameJP")
+            or stage_val.get("nameJa")
+            or "不明"
+        )
+    return "不明"
+
+
+def pick_current_salmon(s: dict, now_jst: datetime):
+    """
+    schedule.json 内に複数のサーモン枠がある場合、
+    now_jst に一致する枠を選んで (rank, stage) を返す。
+    見つからなければ None。
+    """
+    if not isinstance(s, dict):
+        return None
+
+    jst = pytz.timezone("Asia/Tokyo")
+
+    # 候補になりそうなキーを順に探す（生成JSON差を吸収）
+    candidates = None
+    for key in ("salmonRuns", "salmonRunSchedules", "salmonRun", "salmon", "salmonSchedules"):
+        v = s.get(key)
+        if isinstance(v, list):
+            candidates = v
+            break
+        if isinstance(v, dict) and isinstance(v.get("nodes"), list):
+            candidates = v["nodes"]
+            break
+        if isinstance(v, dict) and isinstance(v.get("items"), list):
+            candidates = v["items"]
+            break
+
+    if not candidates:
+        return None
+
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+
+        start_raw = item.get("startTime") or item.get("startAt") or item.get("start")
+        end_raw = item.get("endTime") or item.get("endAt") or item.get("end")
+
+        start_dt = _parse_dt_any(start_raw)
+        end_dt = _parse_dt_any(end_raw)
+        if not start_dt or not end_dt:
+            continue
+
+        # tzinfo 無しなら UTC 扱い（安全策）
+        if start_dt.tzinfo is None:
+            start_dt = pytz.UTC.localize(start_dt)
+        if end_dt.tzinfo is None:
+            end_dt = pytz.UTC.localize(end_dt)
+
+        start_jst = start_dt.astimezone(jst)
+        end_jst = end_dt.astimezone(jst)
+
+        if start_jst <= now_jst < end_jst:
+            rank = (
+                item.get("salmonDifficulty")
+                or item.get("difficulty")
+                or item.get("grade")
+                or item.get("title")
+                or item.get("rank")
+                or "?"
+            )
+
+            stage = (
+                item.get("salmonStage")
+                or item.get("stage")
+                or item.get("stageName")
+                or item.get("map")
+                or None
+            )
+            stage = _extract_stage_name(stage)
+
+            return str(rank), str(stage)
+
+    return None
 
 
 def build_post_text(now_jst: datetime) -> str:
@@ -48,9 +158,14 @@ def build_post_text(now_jst: datetime) -> str:
         chal_rule = s.get("challengeRule", "不明")
         chal_stages = safe_join(s.get("challengeStages", []) or [])
 
-        # ✅ サーモン（共通）
+        # ✅ サーモン（まずは単一値で拾う）
         salmon_stage = s.get("salmonStage", "不明")
         salmon_rank = s.get("salmonDifficulty", "?")
+
+        # ★ now に一致するサーモン枠が取れるなら、それを優先
+        picked = pick_current_salmon(s, now_jst)
+        if picked:
+            salmon_rank, salmon_stage = picked
 
         # ✅ フェス時：指定フォーマット
         if is_fest:
