@@ -25,58 +25,30 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ✅ 出力先を固定
+      # ✅ 出力先を固定（任意：入れておくと安全）
       - name: Run image generator (SAVE)
         run: python spl3_schedule_ver0.py --output Thumbnail/Thumbnail.png
 
-      # ✅ 生成チェック + ハッシュ表示（「同一画像」切り分けに必須）
-      - name: Debug - hash BEFORE generate (HEAD file)
+      # ✅ 生成できてるかチェック（任意：残してOK）
+      - name: Debug - validate output
         run: |
-          echo "=== sha256 HEAD:Thumbnail/Thumbnail.png (from git) ==="
-          if git cat-file -e HEAD:Thumbnail/Thumbnail.png 2>/dev/null; then
-            git show HEAD:Thumbnail/Thumbnail.png | sha256sum
-          else
-            echo "(HEAD has no Thumbnail/Thumbnail.png yet)"
-          fi
-
-      - name: Run image generator (SAVE)
-        run: python spl3_schedule_ver0.py --output Thumbnail/Thumbnail.png
-
-      - name: Debug - validate output + hash AFTER
-        run: |
-          echo "=== ls -la Thumbnail ==="
           ls -la Thumbnail || true
+          if [ ! -f Thumbnail/Thumbnail.png ]; then
+            echo "ERROR: Thumbnail/Thumbnail.png NOT FOUND"
+            exit 1
+          fi
+          ls -lh Thumbnail/Thumbnail.png
+          file Thumbnail/Thumbnail.png
 
-          echo "=== sha256 WORKTREE Thumbnail/Thumbnail.png (generated) ==="
-          sha256sum Thumbnail/Thumbnail.png
-
-          echo "=== git status ==="
-          git status --porcelain
-
-          echo "=== staged diff ==="
-          git add Thumbnail/Thumbnail.png
-          git diff --cached --name-status || true
-
-
-      # ✅ 差分があるときだけ commit/push（空コミット禁止）
-      - name: Commit and Push (only if changed)
+      # ✅ ここが本命：差分が無くても毎回コミットを作る
+      - name: Commit and Push (force commit)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add Thumbnail/Thumbnail.png
 
-          echo "=== git status ==="
-          git status --porcelain
+          # 差分が無くても必ずコミットを作成
+          git commit --allow-empty -m "Update Thumbnail.png (force)"
 
-          echo "=== staged diff ==="
-          git diff --cached --name-status || true
-
-          # 変更が無いなら終了（＝画像が同一だった）
-          if git diff --cached --quiet; then
-            echo "No changes in Thumbnail/Thumbnail.png (skip commit)"
-            exit 0
-          fi
-
-          git commit -m "Update Thumbnail.png"
           git push origin HEAD:main
