@@ -1,10 +1,43 @@
-# post_misskey.py (X投稿文と同一フォーマット対応 + サーモンラン「now枠」難易度ランク対応)
+# post_misskey.py (X投稿文と同一フォーマット対応 + サーモンラン「now枠」難易度ランク対応 + ルール名短縮)
 import os
 import sys
 import json
 import requests
 from datetime import datetime
 import pytz
+
+
+# ==============================
+# ★追加：ルール名短縮（Misskey/Bluesky共通で使える）
+# ==============================
+RULE_SHORT_MAP = {
+    "ガチホコバトル": "ホコ",
+    "ガチエリア": "エリア",
+    "ガチアサリ": "アサリ",
+    "ガチヤグラ": "ヤグラ",
+    # 必要ならここに追加してOK
+    # "ナワバリバトル": "ナワバリ",
+    # "トリカラバトル": "トリカラ",
+}
+
+
+def shorten_rule_name(rule: str) -> str:
+    """
+    ルール名を短縮（完全一致優先、部分一致も保険で対応）
+    """
+    if not isinstance(rule, str) or not rule:
+        return rule
+
+    # 完全一致
+    if rule in RULE_SHORT_MAP:
+        return RULE_SHORT_MAP[rule]
+
+    # 部分一致（例： 'ガチホコバトル（ルール）' みたいな表記揺れ対策）
+    for k, v in RULE_SHORT_MAP.items():
+        if k in rule:
+            return v
+
+    return rule
 
 
 def safe_join(items):
@@ -153,9 +186,9 @@ def build_post_text(now_jst: datetime) -> str:
         is_fest = bool(s.get("isFestActive"))
 
         # 共通で使う値
-        open_rule = s.get("openRule", "不明")
+        open_rule = shorten_rule_name(s.get("openRule", "不明"))
         open_stages = safe_join(s.get("openStages", []) or [])
-        chal_rule = s.get("challengeRule", "不明")
+        chal_rule = shorten_rule_name(s.get("challengeRule", "不明"))
         chal_stages = safe_join(s.get("challengeStages", []) or [])
 
         # ✅ サーモン（まずは単一値で拾う）
@@ -195,7 +228,7 @@ def build_post_text(now_jst: datetime) -> str:
 
         # ✅ 通常時：これまでのフォーマット（サーモンにランク追加）
         regular = safe_join(s.get("regularStages", []) or [])
-        x_rule_normal = s.get("xRule", "不明")
+        x_rule_normal = shorten_rule_name(s.get("xRule", "不明"))
         x_stages_normal = safe_join(s.get("xStages", []) or [])
 
         return (
