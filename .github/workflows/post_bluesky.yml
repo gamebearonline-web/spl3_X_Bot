@@ -25,11 +25,44 @@ jobs:
 
       # ======================
       # ★ 投稿専用画像生成（保存はしない）
-      #   - 画像: /tmp/Thumbnail.png
-      #   - JSON: /tmp/schedule.json  （spl3_schedule_ver0.py が生成）
+      #   - 画像: /tmp/Thumbnail.png  ←最終的にここに揃える
+      #   - JSON: /tmp/schedule.json
       # ======================
       - name: Generate image + schedule.json for POST
-        run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+        run: |
+          SCHEDULE_JSON=/tmp/schedule.json python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+
+      # ======================
+      # ★ 生成されたPNGを探索して /tmp/Thumbnail.png に統一（重要）
+      # ======================
+      - name: Normalize output files
+        run: |
+          set -e
+
+          echo "=== find png candidates ==="
+          find . -maxdepth 6 -type f \( -name "Thumbnail.png" -o -name "Thumbnail2.png" \) -print
+
+          # よくある場所を優先して拾う
+          if [ -f "Thumbnail/Thumbnail.png" ]; then
+            cp "Thumbnail/Thumbnail.png" /tmp/Thumbnail.png
+          elif [ -f "Thumbnail.png" ]; then
+            cp "Thumbnail.png" /tmp/Thumbnail.png
+          else
+            # 最後の手段：どこかにあるThumbnail.pngを拾う
+            CANDIDATE="$(find . -maxdepth 10 -type f -name 'Thumbnail.png' | head -n 1)"
+            if [ -n "$CANDIDATE" ]; then
+              cp "$CANDIDATE" /tmp/Thumbnail.png
+            fi
+          fi
+
+          echo "=== check normalized files ==="
+          ls -lh /tmp/schedule.json || true
+          ls -lh /tmp/Thumbnail.png || true
+
+          # 必須チェック（無ければここで落とす）
+          test -f /tmp/schedule.json
+          test -f /tmp/Thumbnail.png
+          file /tmp/Thumbnail.png || true
 
       # ★デバッグ（任意だけど超おすすめ）
       - name: Debug - list /tmp
@@ -40,6 +73,13 @@ jobs:
             head -n 50 /tmp/schedule.json
           else
             echo "❌ /tmp/schedule.json NOT FOUND"
+          fi
+          echo "----- thumbnail check -----"
+          if [ -f /tmp/Thumbnail.png ]; then
+            ls -lh /tmp/Thumbnail.png
+            file /tmp/Thumbnail.png || true
+          else
+            echo "❌ /tmp/Thumbnail.png NOT FOUND"
           fi
 
       # ======================
@@ -66,6 +106,8 @@ jobs:
       - name: Debug - list post-image
         run: |
           ls -la post-image
+          echo "=== find files ==="
+          find post-image -maxdepth 3 -type f -print
 
       # ======================
       # ★ Bluesky 投稿
