@@ -1,4 +1,4 @@
-# post_bluesky.py (X投稿文と同一フォーマット対応 + Bluesky画像サイズ制限対策 + サーモンラン「now枠」難易度ランク対応)
+# post_bluesky.py (X投稿文と同一フォーマット対応 + Bluesky画像サイズ制限対策 + サーモンラン「now枠」難易度ランク対応 + ルール名短縮)
 import os
 import sys
 import json
@@ -6,6 +6,37 @@ import requests
 from datetime import datetime
 import pytz
 from PIL import Image  # 圧縮用
+
+
+# ==============================
+# ★追加：ルール名短縮（Misskeyと同じ）
+# ==============================
+RULE_SHORT_MAP = {
+    "ガチホコバトル": "ホコ",
+    "ガチエリア": "エリア",
+    "ガチアサリ": "アサリ",
+    "ガチヤグラ": "ヤグラ",
+    # 必要なら追加OK
+    # "ナワバリバトル": "ナワバリ",
+    # "トリカラバトル": "トリカラ",
+}
+
+
+def shorten_rule_name(rule: str) -> str:
+    """
+    ルール名を短縮（完全一致優先、部分一致も保険で対応）
+    """
+    if not isinstance(rule, str) or not rule:
+        return rule
+
+    if rule in RULE_SHORT_MAP:
+        return RULE_SHORT_MAP[rule]
+
+    for k, v in RULE_SHORT_MAP.items():
+        if k in rule:
+            return v
+
+    return rule
 
 
 def safe_join(items):
@@ -36,7 +67,6 @@ def _parse_dt_any(v):
         return None
     try:
         s = v.strip()
-        # "Z" を +00:00 に変換
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
         return datetime.fromisoformat(s)
@@ -72,7 +102,6 @@ def pick_current_salmon(s: dict, now_jst: datetime):
 
     jst = pytz.timezone("Asia/Tokyo")
 
-    # 候補になりそうなキーを順に探す（生成JSON差を吸収）
     candidates = None
     for key in ("salmonRuns", "salmonRunSchedules", "salmonRun", "salmon", "salmonSchedules"):
         v = s.get(key)
@@ -101,7 +130,6 @@ def pick_current_salmon(s: dict, now_jst: datetime):
         if not start_dt or not end_dt:
             continue
 
-        # tzinfo 無しなら UTC 扱い（安全策）
         if start_dt.tzinfo is None:
             start_dt = pytz.UTC.localize(start_dt)
         if end_dt.tzinfo is None:
@@ -150,31 +178,24 @@ def build_post_text(now_jst: datetime) -> str:
     time_str = f"🗓️{now_jst.year}年{now_jst.month}月{now_jst.day}日　🕛{hour}時更新"
 
     if isinstance(s, dict):
-        # ✅ フェス判定（schedule.json の isFestActive）
         is_fest = bool(s.get("isFestActive"))
 
-        # 共通で使う値
-        open_rule = s.get("openRule", "不明")
+        # 共通で使う値（★ここで短縮）
+        open_rule = shorten_rule_name(s.get("openRule", "不明"))
         open_stages = safe_join(s.get("openStages", []) or [])
-        chal_rule = s.get("challengeRule", "不明")
+        chal_rule = shorten_rule_name(s.get("challengeRule", "不明"))
         chal_stages = safe_join(s.get("challengeStages", []) or [])
 
-        # ✅ サーモン（まずは単一値で拾う）
         salmon_stage = s.get("salmonStage", "不明")
         salmon_rank = s.get("salmonDifficulty", "?")
 
-        # ★ now に一致するサーモン枠が取れるなら、それを優先
         picked = pick_current_salmon(s, now_jst)
         if picked:
             salmon_rank, salmon_stage = picked
 
-        # ✅ フェス時：指定フォーマット
         if is_fest:
-            # ★トリカラは schedule.json の xRule/xStages を優先
             x_rule = s.get("xRule", "")
             x_stages = s.get("xStages", []) or []
-
-            # 旧仕様（tricolorStages）も保険で拾う
             legacy_tri = s.get("tricolorStages", []) or []
 
             if (isinstance(x_rule, str) and "トリカラ" in x_rule) and x_stages:
@@ -193,9 +214,9 @@ def build_post_text(now_jst: datetime) -> str:
                 f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
             )
 
-        # ✅ 通常時
+        # 通常時（★ここで短縮）
         regular = safe_join(s.get("regularStages", []) or [])
-        x_rule_normal = s.get("xRule", "不明")
+        x_rule_normal = shorten_rule_name(s.get("xRule", "不明"))
         x_stages_normal = safe_join(s.get("xStages", []) or [])
 
         return (
@@ -207,7 +228,6 @@ def build_post_text(now_jst: datetime) -> str:
             f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
         )
 
-    # schedule.json が無い/壊れている場合の保険
     return (
         "【スプラ3】スケジュール更新！\n"
         f"{time_str}\n"
@@ -239,14 +259,10 @@ def bluesky_request(url, method="POST", headers=None, json=None, data=None):
 
 # =========================================================
 # Bluesky画像サイズ制限対策（BlobTooLarge）
-#   - 元画像が大きい場合、JPEG化して max_bytes 以下に落とす
-#   - 生成したファイルパスと Content-Type を返す
 # =========================================================
 def ensure_bluesky_upload_image(image_path: str, max_bytes: int = 950 * 1024):
     """
     Returns: (upload_path, content_type)
-      - upload_path: 実際にアップロードする画像パス
-      - content_type: 'image/png' or 'image/jpeg'
     """
     if not image_path or not os.path.exists(image_path):
         return (image_path, "image/png")
@@ -269,7 +285,6 @@ def ensure_bluesky_upload_image(image_path: str, max_bytes: int = 950 * 1024):
         print(f"[WARN] PIL open failed; upload original as-is. err={e}")
         return (image_path, "image/png")
 
-    # 品質を下げながら max_bytes を下回るまで試す
     for q in [85, 80, 75, 70, 65, 60, 55]:
         try:
             img.save(out_path, format="JPEG", quality=q, optimize=True, progressive=True)
@@ -280,7 +295,6 @@ def ensure_bluesky_upload_image(image_path: str, max_bytes: int = 950 * 1024):
         except Exception as e:
             print(f"[WARN] JPEG save failed q={q}: {e}")
 
-    # どうしても収まらない場合：軽くリサイズして最後に保存
     try:
         w, h = img.size
         img2 = img.resize((int(w * 0.95), int(h * 0.95)))
@@ -320,7 +334,6 @@ def post_to_bluesky(image_path, text):
 
     # ===== ② 画像アップロード =====
     blob = None
-
     upload_path, content_type = ensure_bluesky_upload_image(image_path)
 
     if upload_path and os.path.exists(upload_path):
@@ -381,7 +394,6 @@ def main():
     jst = pytz.timezone("Asia/Tokyo")
     now = datetime.now(jst)
 
-    # テスト用：TWEET_TEXT があればそれを優先
     text = os.getenv("TWEET_TEXT", "").strip()
     if not text:
         text = build_post_text(now)
