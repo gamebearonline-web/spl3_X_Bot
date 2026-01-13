@@ -7,8 +7,22 @@ import pytz
 import time
 import random
 
+# ==============================
+# ルール短縮（X用）
+# ==============================
+RULE_SHORT_MAP = {
+    "ガチホコバトル": "ホコ",
+    "ガチエリア": "エリア",
+    "ガチアサリ": "アサリ",
+    "ガチヤグラ": "ヤグラ",
+}
+
+X_MAX = 280
+
+
 def safe_join(items):
     return ",".join([x for x in items if x])
+
 
 def load_schedule_json(path: str):
     if not os.path.exists(path):
@@ -20,6 +34,7 @@ def load_schedule_json(path: str):
     except Exception as e:
         print("[WARN] schedule.json の読み込みに失敗:", repr(e))
         return None
+
 
 # ==============================
 # ★追加：ISO日時のパースと、nowに一致するサーモン枠の抽出
@@ -33,21 +48,17 @@ def _parse_dt_any(v):
         return None
     try:
         s = v.strip()
-        # "Z" を +00:00 に変換
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
         return datetime.fromisoformat(s)
     except Exception:
         return None
 
+
 def _extract_stage_name(stage_val):
-    """
-    stage が dict でも str でも拾えるようにする
-    """
     if isinstance(stage_val, str):
         return stage_val
     if isinstance(stage_val, dict):
-        # ありがちなキー候補
         return (
             stage_val.get("name")
             or stage_val.get("jpName")
@@ -57,18 +68,17 @@ def _extract_stage_name(stage_val):
         )
     return "不明"
 
+
 def pick_current_salmon(s: dict, now_jst: datetime):
     """
     schedule.json 内に複数のサーモン枠がある場合、
     now_jst に一致する枠を選んで (rank, stage) を返す。
-    見つからなければ None。
     """
     if not isinstance(s, dict):
         return None
 
     jst = pytz.timezone("Asia/Tokyo")
 
-    # 候補になりそうなキーを順に探す（生成JSON差を吸収）
     candidates = None
     for key in ("salmonRuns", "salmonRunSchedules", "salmonRun", "salmon", "salmonSchedules"):
         v = s.get(key)
@@ -90,21 +100,20 @@ def pick_current_salmon(s: dict, now_jst: datetime):
             continue
 
         start_raw = item.get("startTime") or item.get("startAt") or item.get("start")
-        end_raw   = item.get("endTime")   or item.get("endAt")   or item.get("end")
+        end_raw = item.get("endTime") or item.get("endAt") or item.get("end")
 
         start_dt = _parse_dt_any(start_raw)
-        end_dt   = _parse_dt_any(end_raw)
+        end_dt = _parse_dt_any(end_raw)
         if not start_dt or not end_dt:
             continue
 
-        # tzinfo 無しなら UTC 扱い（安全策）
         if start_dt.tzinfo is None:
             start_dt = pytz.UTC.localize(start_dt)
         if end_dt.tzinfo is None:
             end_dt = pytz.UTC.localize(end_dt)
 
         start_jst = start_dt.astimezone(jst)
-        end_jst   = end_dt.astimezone(jst)
+        end_jst = end_dt.astimezone(jst)
 
         if start_jst <= now_jst < end_jst:
             rank = (
@@ -129,6 +138,90 @@ def pick_current_salmon(s: dict, now_jst: datetime):
 
     return None
 
+
+# ==============================
+# X用：文字列正規化（ルール短縮 + 空白削除）
+# ==============================
+def normalize_x_text(text: str) -> str:
+    if not text:
+        return text
+
+    # ① ルール名短縮
+    for long, short in RULE_SHORT_MAP.items():
+        text = text.replace(long, short)
+
+    # ② 改行以外の無駄空白を削除（各行strip + 全角スペース除去）
+    lines = [ln.strip().replace("　", "") for ln in text.split("\n")]
+
+    # ③ 連続する空行を除去
+    cleaned = []
+    for ln in lines:
+        if ln or (cleaned and cleaned[-1]):
+            cleaned.append(ln)
+
+    return "\n".join(cleaned)
+
+
+# ==============================
+# X用：長すぎる場合の自動短縮（保険）
+# ==============================
+def _shorten_stages(text: str) -> str:
+    """
+    「：A,B」みたいな行を「：A」へ短縮（B以降を落とす）
+    """
+    lines = text.split("\n")
+    out = []
+    for ln in lines:
+        if "：" in ln:
+            head, tail = ln.split("：", 1)
+            if "," in tail:
+                tail = tail.split(",", 1)[0]
+            out.append(head + "：" + tail)
+        else:
+            out.append(ln)
+    return "\n".join(out)
+
+
+def fit_x_text(text: str, max_len: int = X_MAX) -> str:
+    if len(text) <= max_len:
+        return text
+
+    lines = text.split("\n")
+
+    # 1) レギュラー行（🟡）を削る
+    lines1 = [ln for ln in lines if not ln.startswith("🟡")]
+    t = "\n".join(lines1)
+    if len(t) <= max_len:
+        return t
+
+    # 2) 各行のステージを「2つ→1つ」にする
+    t2 = _shorten_stages(t)
+    if len(t2) <= max_len:
+        return t2
+
+    # 3) ルール部分を落としてステージだけに寄せる
+    #    「🟠オープン：ルール：ステージ」→「🟠オープン：ステージ」
+    lines2 = []
+    for ln in t2.split("\n"):
+        parts = ln.split("：")
+        if len(parts) >= 3:
+            ln = "：".join([parts[0], parts[-1]])
+        lines2.append(ln)
+    t3 = "\n".join(lines2)
+    if len(t3) <= max_len:
+        return t3
+
+    # 4) 最後の保険：更新時刻 + サーモンランのみ
+    time_line = lines[0] if lines else ""
+    salmon = [ln for ln in lines if ln.startswith("🔶")]
+    t4 = "\n".join([time_line] + salmon)
+    if len(t4) <= max_len:
+        return t4
+
+    # 最終手段：末尾切り
+    return t4[: max_len - 1] + "…"
+
+
 def build_tweet_text(now_jst: datetime) -> str:
     schedule_json_path = os.getenv("SCHEDULE_JSON", "post-image/schedule.json")
     s = load_schedule_json(schedule_json_path)
@@ -148,14 +241,14 @@ def build_tweet_text(now_jst: datetime) -> str:
         # ===== 共通 =====
         is_fest = bool(s.get("isFestActive"))
 
-        open_rule   = s.get("openRule", "不明")
+        open_rule = s.get("openRule", "不明")
         open_stages = safe_join(s.get("openStages", []) or [])
-        chal_rule   = s.get("challengeRule", "不明")
+        chal_rule = s.get("challengeRule", "不明")
         chal_stages = safe_join(s.get("challengeStages", []) or [])
 
-        # まずは単一値（従来）で拾う
+        # サーモン（まずは単一値で拾う）
         salmon_stage = s.get("salmonStage", "不明")
-        salmon_rank  = s.get("salmonDifficulty", "?")
+        salmon_rank = s.get("salmonDifficulty", "?")
 
         # ★ now に一致するサーモン枠が取れるなら、それを優先
         picked = pick_current_salmon(s, now_jst)
@@ -205,6 +298,7 @@ def build_tweet_text(now_jst: datetime) -> str:
         "#スプラ3スケジュール #スプラトゥーン3 #Splatoon3 #サーモンラン"
     )
 
+
 def print_forbidden_details(e: Exception):
     print("[ERROR] Forbidden:", repr(e))
     if hasattr(e, "api_codes"):
@@ -219,6 +313,7 @@ def print_forbidden_details(e: Exception):
         except Exception:
             pass
 
+
 def main():
     consumer_key = os.getenv("TWITTER_API_KEY")
     consumer_secret = os.getenv("TWITTER_API_SECRET")
@@ -231,7 +326,12 @@ def main():
 
     jst = pytz.timezone("Asia/Tokyo")
     now = datetime.now(jst)
+
     tweet_text = os.getenv("TWEET_TEXT", build_tweet_text(now))
+
+    # ★ X用の整形（ルール短縮 + 空白削除 → 280超え対策）
+    tweet_text = normalize_x_text(tweet_text)
+    tweet_text = fit_x_text(tweet_text)
 
     image_path = os.getenv("IMAGE_PATH", "post-image/Thumbnail.png")
     if not os.path.exists(image_path):
@@ -262,6 +362,7 @@ def main():
             wait_on_rate_limit=True
         )
 
+        # Cloudflare/UA系の回避策（必要なら維持）
         client.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                           "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
@@ -280,6 +381,7 @@ def main():
     except Exception as e:
         print("[ERROR] ツイート投稿失敗:", repr(e))
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
