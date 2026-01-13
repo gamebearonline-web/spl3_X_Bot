@@ -698,6 +698,23 @@ def align_results_to_timeline(results, timeline):
             aligned.append({})
     return aligned
 
+def normalize_to_now(results: list, now_item: dict) -> list:
+    """
+    schedule(results) を now_item(start_time) が先頭になるよう回転させる
+    [now, next, next2...] の順にする
+    """
+    if not isinstance(results, list) or not results:
+        return results or []
+
+    now_st = (now_item or {}).get("start_time")
+    if not now_st:
+        return results
+
+    for i, r in enumerate(results):
+        if isinstance(r, dict) and r.get("start_time") == now_st:
+            return results[i:] + results[:i]
+
+    return results
 
 
 # ==========================
@@ -954,8 +971,11 @@ def main():
     apply_fest_overlays(base, fest_slots)
 
     try:
-               # regular（基準）
-        regular_results = fetch_schedule(API_URLS["regular"])
+        # regular（基準）：★先に now を取って、schedule を now 起点に並び替える
+        reg_now_for_align = fetch_now(API_NOW_URLS["regular"])
+        regular_results_raw = fetch_schedule(API_URLS["regular"])
+        regular_results = normalize_to_now(regular_results_raw, reg_now_for_align)
+
         render_versus_mode(base, "regular", regular_results, fest_slots=None)
 
         # ★基準タイムライン（regular の now〜next4 に合わせる）
@@ -1092,9 +1112,14 @@ def main():
     with open(schedule_json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     print(f"[INFO] JSON出力完了: {schedule_json_path}")
-   
+
+        # ✅最後に画像を保存（これが無いと Thumbnail.png が更新されない）
+    base.save(OUTPUT_PATH)
+    print(f"[INFO] 画像出力完了: {OUTPUT_PATH}")
+
 
 if __name__ == "__main__":
     main()
+
 
 
