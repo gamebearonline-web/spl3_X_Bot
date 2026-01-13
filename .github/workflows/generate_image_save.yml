@@ -25,28 +25,47 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ✅ 出力先を固定（ここ重要）
+      # ✅ 出力先を固定
       - name: Run image generator (SAVE)
         run: python spl3_schedule_ver0.py --output Thumbnail/Thumbnail.png
 
-      # ✅ 生成できてるか強制チェック（ここが最重要）
-      - name: Debug - validate output
+      # ✅ 生成チェック + ハッシュ表示（「同一画像」切り分けに必須）
+      - name: Debug - validate output + hash
         run: |
           echo "=== ls -la Thumbnail ==="
           ls -la Thumbnail || true
+
           echo "=== check file ==="
           if [ ! -f Thumbnail/Thumbnail.png ]; then
             echo "ERROR: Thumbnail/Thumbnail.png NOT FOUND"
             exit 1
           fi
+
           ls -lh Thumbnail/Thumbnail.png
           file Thumbnail/Thumbnail.png
 
-      - name: Commit and Push (always commit)
+          echo "=== sha256 Thumbnail/Thumbnail.png ==="
+          sha256sum Thumbnail/Thumbnail.png
+
+      # ✅ 差分があるときだけ commit/push（空コミット禁止）
+      - name: Commit and Push (only if changed)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add Thumbnail/Thumbnail.png
-          git commit --allow-empty -m "Update Thumbnail.png (force)"
+
+          echo "=== git status ==="
+          git status --porcelain
+
+          echo "=== staged diff ==="
+          git diff --cached --name-status || true
+
+          # 変更が無いなら終了（＝画像が同一だった）
+          if git diff --cached --quiet; then
+            echo "No changes in Thumbnail/Thumbnail.png (skip commit)"
+            exit 0
+          fi
+
+          git commit -m "Update Thumbnail.png"
           git push origin HEAD:main
