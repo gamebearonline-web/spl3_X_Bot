@@ -24,23 +24,43 @@ jobs:
           pip install -r requirements.txt
 
       # ======================
-      # 画像 + schedule.json を生成（出力先を /tmp に固定）
+      # 画像 + schedule.json を生成
+      # （SCHEDULE_JSONだけ /tmp に固定）
       # ======================
       - name: Generate image + schedule json
         run: |
-          SCHEDULE_JSON=/tmp/schedule.json python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+          SCHEDULE_JSON=/tmp/schedule.json python spl3_schedule_ver0.py
 
       # ======================
-      # デバッグ：生成物があるか確認（保険）
+      # 生成されたPNGを探索して /tmp/Thumbnail.png に統一
       # ======================
-      - name: Debug - list /tmp
+      - name: Normalize output files
         run: |
-          echo "=== ls -la /tmp ==="
-          ls -la /tmp
-          echo "=== check files ==="
-          test -f /tmp/Thumbnail.png
+          set -e
+
+          echo "=== find png candidates ==="
+          find . -maxdepth 4 -type f \( -name "Thumbnail.png" -o -name "Thumbnail2.png" \) -print
+
+          # まずよくある場所を優先して探す
+          if [ -f "Thumbnail/Thumbnail.png" ]; then
+            cp "Thumbnail/Thumbnail.png" /tmp/Thumbnail.png
+          elif [ -f "Thumbnail.png" ]; then
+            cp "Thumbnail.png" /tmp/Thumbnail.png
+          else
+            # 最後の手段：どこかにあるThumbnail.pngを拾う
+            CANDIDATE="$(find . -maxdepth 6 -type f -name 'Thumbnail.png' | head -n 1)"
+            if [ -n "$CANDIDATE" ]; then
+              cp "$CANDIDATE" /tmp/Thumbnail.png
+            fi
+          fi
+
+          echo "=== check normalized files ==="
+          ls -lh /tmp/schedule.json || true
+          ls -lh /tmp/Thumbnail.png || true
+
+          # ここで必須チェック（無ければ即エラー）
           test -f /tmp/schedule.json
-          ls -lh /tmp/Thumbnail.png /tmp/schedule.json
+          test -f /tmp/Thumbnail.png
           file /tmp/Thumbnail.png || true
 
       # ======================
@@ -55,7 +75,7 @@ jobs:
             /tmp/schedule.json
 
       # ======================
-      # artifact をダウンロード（このジョブ内では本来不要だが、現状構成に合わせて残す）
+      # artifact をダウンロード
       # ======================
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -63,9 +83,6 @@ jobs:
           name: post-image
           path: post-image
 
-      # ======================
-      # デバッグ：ダウンロード後の配置確認（post-image/Thumbnail.png 問題の再発防止）
-      # ======================
       - name: Debug - list post-image
         run: |
           echo "=== ls -la post-image ==="
