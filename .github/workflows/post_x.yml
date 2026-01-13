@@ -19,13 +19,29 @@ jobs:
           python-version: "3.11"
 
       - name: Install deps
-        run: pip install -r requirements.txt
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
       # ======================
-      # 画像 + schedule.json を生成
+      # 画像 + schedule.json を生成（出力先を /tmp に固定）
       # ======================
       - name: Generate image + schedule json
-        run: python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+        run: |
+          SCHEDULE_JSON=/tmp/schedule.json python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
+
+      # ======================
+      # デバッグ：生成物があるか確認（保険）
+      # ======================
+      - name: Debug - list /tmp
+        run: |
+          echo "=== ls -la /tmp ==="
+          ls -la /tmp
+          echo "=== check files ==="
+          test -f /tmp/Thumbnail.png
+          test -f /tmp/schedule.json
+          ls -lh /tmp/Thumbnail.png /tmp/schedule.json
+          file /tmp/Thumbnail.png || true
 
       # ======================
       # artifact に PNG + JSON をアップロード
@@ -39,7 +55,7 @@ jobs:
             /tmp/schedule.json
 
       # ======================
-      # artifact をダウンロード
+      # artifact をダウンロード（このジョブ内では本来不要だが、現状構成に合わせて残す）
       # ======================
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -48,13 +64,23 @@ jobs:
           path: post-image
 
       # ======================
+      # デバッグ：ダウンロード後の配置確認（post-image/Thumbnail.png 問題の再発防止）
+      # ======================
+      - name: Debug - list post-image
+        run: |
+          echo "=== ls -la post-image ==="
+          ls -la post-image
+          echo "=== find files ==="
+          find post-image -maxdepth 3 -type f -print
+
+      # ======================
       # X に投稿
       # ======================
       - name: Post to X
         env:
-          TWITTER_API_KEY:      ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET:   ${{ secrets.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_API_KEY:       ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET:    ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN:  ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
           IMAGE_PATH: post-image/Thumbnail.png
           SCHEDULE_JSON: post-image/schedule.json
