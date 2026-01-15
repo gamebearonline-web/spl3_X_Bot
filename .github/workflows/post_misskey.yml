@@ -24,8 +24,18 @@ jobs:
           pip install -r requirements.txt
 
       # ======================
+      # ✅ 追加：古いサムネ候補を掃除（事故防止）
+      # ======================
+      - name: Clean old thumbnails
+        run: |
+          rm -f Thumbnail.png Thumbnail2.png || true
+          rm -f Thumbnail/Thumbnail.png Thumbnail/Thumbnail2.png || true
+          echo "=== existing Thumbnail candidates (after clean) ==="
+          find . -maxdepth 10 -type f -name 'Thumbnail*.png' -print || true
+
+      # ======================
       # ★ 画像生成（保存はしない）
-      #   - 画像: /tmp/Thumbnail.png  ←（最終的にはここに揃える）
+      #   - 画像: /tmp/Thumbnail.png
       #   - JSON: /tmp/schedule.json
       # ======================
       - name: Generate image + schedule.json for POST
@@ -33,36 +43,45 @@ jobs:
           SCHEDULE_JSON=/tmp/schedule.json python spl3_schedule_ver0.py --output /tmp/Thumbnail.png
 
       # ======================
-      # ★ 生成されたPNGを探索して /tmp/Thumbnail.png に統一（重要）
+      # ✅ 修正：/tmp に生成済みなら上書きしない
+      #    無い場合のみ候補から「一番新しい」ものを採用
       # ======================
       - name: Normalize output files
         run: |
           set -e
 
-          echo "=== find png candidates ==="
-          find . -maxdepth 6 -type f \( -name "Thumbnail.png" -o -name "Thumbnail2.png" \) -print
+          echo "=== after generate ==="
+          ls -lh /tmp/Thumbnail.png || true
+          ls -lh /tmp/schedule.json || true
 
-          # よくある場所を優先して拾う
-          if [ -f "Thumbnail/Thumbnail.png" ]; then
-            cp "Thumbnail/Thumbnail.png" /tmp/Thumbnail.png
-          elif [ -f "Thumbnail.png" ]; then
-            cp "Thumbnail.png" /tmp/Thumbnail.png
+          if [ -f /tmp/Thumbnail.png ]; then
+            echo "✅ /tmp/Thumbnail.png already exists. Use it as final (no overwrite)."
           else
-            # 最後の手段：どこかにあるThumbnail.pngを拾う
-            CANDIDATE="$(find . -maxdepth 10 -type f -name 'Thumbnail.png' | head -n 1)"
+            echo "⚠️ /tmp/Thumbnail.png not found. Searching candidates..."
+
+            echo "=== find png candidates ==="
+            find . -maxdepth 10 -type f \( -name "Thumbnail.png" -o -name "Thumbnail2.png" -o -name "Thumbnail*.png" \) -print
+
+            # 候補のうち更新時刻が一番新しいものを拾う
+            CANDIDATE="$(find . -maxdepth 10 -type f -name 'Thumbnail*.png' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
             if [ -n "$CANDIDATE" ]; then
+              echo "✅ picked newest: $CANDIDATE"
               cp "$CANDIDATE" /tmp/Thumbnail.png
+            else
+              echo "❌ No Thumbnail candidate found."
+              exit 1
             fi
           fi
 
           echo "=== check normalized files ==="
-          ls -lh /tmp/schedule.json || true
-          ls -lh /tmp/Thumbnail.png || true
-
-          # 必須チェック（無ければここで落とす）
           test -f /tmp/schedule.json
           test -f /tmp/Thumbnail.png
+          ls -lh /tmp/Thumbnail.png
           file /tmp/Thumbnail.png || true
+
+          echo "=== hashes (/tmp) ==="
+          sha256sum /tmp/Thumbnail.png || true
+          sha256sum /tmp/schedule.json || true
 
       # ======================
       # ★ デバッグ（/tmp 確認）
@@ -80,6 +99,8 @@ jobs:
           if [ -f /tmp/Thumbnail.png ]; then
             ls -lh /tmp/Thumbnail.png
             file /tmp/Thumbnail.png || true
+            echo "----- thumbnail hash -----"
+            sha256sum /tmp/Thumbnail.png || true
           else
             echo "❌ /tmp/Thumbnail.png NOT FOUND"
           fi
@@ -105,21 +126,13 @@ jobs:
           path: post-image
 
       # ======================
-      # ★ デバッグ（artifact 確認）
+      # ★ デバッグ（artifact 確認 + ハッシュ）
       # ======================
       - name: Debug - list post-image
         run: |
           ls -la post-image
           echo "=== find files ==="
           find post-image -maxdepth 3 -type f -print
-
-      # ======================
-      # ★ Misskey 投稿
-      # ======================
-      - name: Post to Misskey
-        env:
-          MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
-          MISSKEY_API: ${{ secrets.MISSKEY_URL }}/api
-          IMAGE_PATH: post-image/Thumbnail.png
-          SCHEDULE_JSON: post-image/schedule.json
-        run: python post_misskey.py
+          echo "=== hashes (post-image) ==="
+          sha256sum post-image/Thumbnail.png || true
+          sha256sum post-image/schedul
