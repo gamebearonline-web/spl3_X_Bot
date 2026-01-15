@@ -126,7 +126,7 @@ jobs:
           path: post-image
 
       # ======================
-      # ★ デバッグ（artifact 確認 + ハッシュ）
+      # ✅ デバッグ（artifact 確認 + ハッシュ）※ここが今回落ちてたので修正済み
       # ======================
       - name: Debug - list post-image
         run: |
@@ -135,4 +135,15 @@ jobs:
           find post-image -maxdepth 3 -type f -print
           echo "=== hashes (post-image) ==="
           sha256sum post-image/Thumbnail.png || true
-          sha256sum post-image/schedul
+          sha256sum post-image/schedule.json || true
+
+      # ======================
+      # ★ Misskey 投稿
+      # ======================
+      - name: Post to Misskey
+        env:
+          MISSKEY_TOKEN: ${{ secrets.MISSKEY_TOKEN }}
+          MISSKEY_API: ${{ secrets.MISSKEY_URL }}/api
+          IMAGE_PATH: post-image/Thumbnail.png
+          SCHEDULE_JSON: post-image/schedule.json
+        run: python post_misskey.py
