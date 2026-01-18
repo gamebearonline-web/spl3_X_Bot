@@ -274,7 +274,7 @@ def build_tweet_text(now_jst: datetime) -> str:
                 f"🥳オープン：{open_stages}\n"
                 f"🥳チャレンジ：{chal_stages}\n"
                 f"{tri_line}\n"
-                f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
+                f"🔶サモラン：{salmon_rank}：{salmon_stage}"
             )
 
         # ===== 通常時 =====
@@ -287,8 +287,8 @@ def build_tweet_text(now_jst: datetime) -> str:
             f"🟡レギュラー：{regular}\n"
             f"🟠オープン：{open_rule}：{open_stages}\n"
             f"🟠チャレンジ：{chal_rule}：{chal_stages}\n"
-            f"🟢Xマッチ：{x_rule_normal}：{x_stages_normal}\n"
-            f"🔶サーモンラン：{salmon_rank}：{salmon_stage}"
+            f"🟢X：{x_rule_normal}：{x_stages_normal}\n"
+            f"🔶サモラン：{salmon_rank}：{salmon_stage}"
         )
 
     # 保険
